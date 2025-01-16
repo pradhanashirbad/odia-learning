@@ -7,7 +7,6 @@ setup(
     install_requires=[
         "openai>=1.0.0",
         "azure-cognitiveservices-speech>=1.31.0",
-        "python-dotenv>=1.0.0",
-        "PyQt6>=6.4.0"
+        "python-dotenv>=1.0.0"
     ],
 ) 
