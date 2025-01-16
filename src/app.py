@@ -3,6 +3,7 @@ from flask_cors import CORS
 import os
 import sys
 import tempfile
+import logging
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from openai import OpenAI
@@ -11,15 +12,28 @@ from services.word_generation import WordGenerationService
 from services.translation import TranslationService
 from services.speech import SpeechService
 
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 app = Flask(__name__)
-CORS(app)  # Enable CORS for all routes
+CORS(app)
 
 # Initialize settings and services
-settings = Settings()
-client = OpenAI()
-word_service = WordGenerationService(client, settings.config, settings.model_configs)
-translation_service = TranslationService(client, settings.config, settings.model_configs)
-speech_service = SpeechService()
+try:
+    settings = Settings()
+    client = OpenAI()
+    word_service = WordGenerationService(client, settings.config, settings.model_configs)
+    translation_service = TranslationService(client, settings.config, settings.model_configs)
+    speech_service = SpeechService()
+    logger.info("Services initialized successfully")
+except Exception as e:
+    logger.error(f"Error initializing services: {e}")
+    raise
+
+@app.route('/health')
+def health_check():
+    return jsonify({"status": "healthy"}), 200
 
 @app.route('/')
 def index():
@@ -63,7 +77,16 @@ def generate():
         }), 500
 
 if __name__ == '__main__':
-    # Get port from environment variable for Codespaces compatibility
-    port = int(os.environ.get('PORT', 5000))
-    # Make sure to bind to 0.0.0.0 for Codespaces
-    app.run(host='0.0.0.0', port=port, debug=True, use_reloader=True) 
+    try:
+        port = int(os.environ.get('PORT', 5000))
+        logger.info(f"Starting Flask app on port {port}")
+        app.run(
+            host='0.0.0.0',
+            port=port,
+            debug=True,
+            use_reloader=True,
+            threaded=True
+        )
+    except Exception as e:
+        logger.error(f"Error starting Flask app: {e}")
+        raise 
