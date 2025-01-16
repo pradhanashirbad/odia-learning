@@ -52,8 +52,13 @@
     <div id="results"></div>
 
     <script>
+        // Get the base URL dynamically
+        const baseUrl = window.location.origin;
+
         function playAudio(url) {
-            new Audio(url).play();
+            // Ensure we're using the full URL
+            const fullUrl = url.startsWith('http') ? url : `${baseUrl}${url}`;
+            new Audio(fullUrl).play();
         }
 
         function generateWords() {
@@ -63,8 +68,13 @@
             loadingElement.style.display = 'block';
             resultsElement.innerHTML = '';
             
-            fetch('/generate', {
+            // Use the base URL for the fetch request
+            fetch(`${baseUrl}/generate`, {
                 method: 'POST',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                },
             })
             .then(response => response.json())
             .then(data => {

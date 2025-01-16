@@ -1,4 +1,5 @@
 from flask import Flask, render_template, jsonify, request, send_file
+from flask_cors import CORS
 import os
 import sys
 import tempfile
@@ -11,6 +12,7 @@ from services.translation import TranslationService
 from services.speech import SpeechService
 
 app = Flask(__name__)
+CORS(app)  # Enable CORS for all routes
 
 # Initialize settings and services
 settings = Settings()
@@ -63,4 +65,5 @@ def generate():
 if __name__ == '__main__':
     # Get port from environment variable for Codespaces compatibility
     port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port, debug=True) 
+    # Make sure to bind to 0.0.0.0 for Codespaces
+    app.run(host='0.0.0.0', port=port, debug=True, use_reloader=True) 
