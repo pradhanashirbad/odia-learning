@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Odia Learning App</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .translation-card {
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .loading {
+            display: none;
+            color: #666;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .play-button {
+            background-color: #2196F3;
+            margin-top: 10px;
+            padding: 5px 15px;
+        }
+        .play-button:hover {
+            background-color: #1976D2;
+        }
+    </style>
+</head>
+<body>
+    <h1>Odia Learning App</h1>
+    
+    <button onclick="generateWords()">Generate New Words</button>
+    <p id="loading" class="loading">Generating words and translations...</p>
+    
+    <div id="results"></div>
+
+    <script>
+        function playAudio(url) {
+            new Audio(url).play();
+        }
+
+        function generateWords() {
+            const loadingElement = document.getElementById('loading');
+            const resultsElement = document.getElementById('results');
+            
+            loadingElement.style.display = 'block';
+            resultsElement.innerHTML = '';
+            
+            fetch('/generate', {
+                method: 'POST',
+            })
+            .then(response => response.json())
+            .then(data => {
+                loadingElement.style.display = 'none';
+                
+                if (data.success) {
+                    data.translations.forEach(translation => {
+                        const card = document.createElement('div');
+                        card.className = 'translation-card';
+                        card.innerHTML = `
+                            <h3>English: ${translation.english}</h3>
+                            <p>Odia: ${translation.odia}</p>
+                            <p>Romanized: ${translation.romanized_odia}</p>
+                            <button class="play-button" onclick="playAudio('${translation.audio_url}')">
+                                Play Pronunciation
+                            </button>
+                        `;
+                        resultsElement.appendChild(card);
+                    });
+                } else {
+                    resultsElement.innerHTML = `<p style="color: red;">Error: ${data.error}</p>`;
+                }
+            })
+            .catch(error => {
+                loadingElement.style.display = 'none';
+                resultsElement.innerHTML = `<p style="color: red;">Error: ${error}</p>`;
+            });
+        }
+    </script>
+</body>
+</html> 

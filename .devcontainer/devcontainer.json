@@ -16,7 +16,7 @@
             ]
         }
     },
-    "forwardPorts": [6080],
+    "forwardPorts": [5000],
     "postCreateCommand": "pip install -e .",
     "remoteUser": "vscode"
 } 
