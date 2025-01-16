@@ -1,0 +1,17 @@
+{
+    "gpt-4-turbo-preview": {
+        "temperature": 0.7,
+        "max_tokens": 500,
+        "presence_penalty": 0,
+        "frequency_penalty": 0
+    },
+    "azure-odia": {
+        "engine": "azure",
+        "voice": "or-IN-SubhasiniNeural",
+        "region": "eastus"
+    },
+    "base": {
+        "device": "cpu",
+        "compute_type": "int8"
+    }
+} 

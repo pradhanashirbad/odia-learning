@@ -1,0 +1,17 @@
+{
+    "models": {
+        "word_generation": "gpt-4-turbo-preview",
+        "translation": "gpt-4-turbo-preview",
+        "transcription": "base",
+        "tts": "azure-odia"
+    },
+    "audio": {
+        "sample_rate": 44100,
+        "duration": 5,
+        "channels": 1
+    },
+    "language": {
+        "primary": "odia",
+        "fallback": "en-IN"
+    }
+} 
