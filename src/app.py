@@ -9,9 +9,8 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from openai import OpenAI
 from config.settings import Settings
 from services.word_generation import WordGenerationService
-from services.phrase_generation import PhraseGenerationService
+from services.odia_phrase_service import OdiaPhraseService
 from services.translation_words import WordTranslationService
-from services.translation_phrases import PhraseTranslationService
 from services.speech import SpeechService
 from services.blob_storage import BlobStorageService
 from services.data_storage import DataStorageService
@@ -47,9 +46,8 @@ try:
     blob_storage = BlobStorageService(settings.config)
     data_storage = DataStorageService(blob_storage)
     word_service = WordGenerationService(client, settings.config, settings.model_configs)
-    phrase_service = PhraseGenerationService(client, settings.config, settings.model_configs)
+    odia_phrase_service = OdiaPhraseService(client, settings.config, settings.model_configs)
     word_translation_service = WordTranslationService(client, settings.config, settings.model_configs)
-    phrase_translation_service = PhraseTranslationService(client, settings.config, settings.model_configs)
     speech_service = SpeechService(blob_storage)
     logger.info("Services initialized successfully")
 except Exception as e:
@@ -91,12 +89,11 @@ def generate():
             items = word_service.generate_words(existing_words)
             new_translations = word_translation_service.translate_words(items)
         else:
-            items = phrase_service.generate_phrases(existing_words)
-            new_translations = phrase_translation_service.translate_phrases(items)
+            # Generate phrases starting with Odia
+            new_translations = odia_phrase_service.process_phrases(existing_words)
             
-            # Check if we got fewer translations than expected
-            if len(new_translations) < len(items):
-                logger.warning(f"Some translations were incomplete or invalid. Got {len(new_translations)} out of {len(items)}")
+            if len(new_translations) < 10:
+                logger.warning(f"Generated fewer translations than expected: {len(new_translations)}")
         
         # Save session data (this will now append to existing translations)
         storage_info = data_storage.save_session_data(new_translations)
