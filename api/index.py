@@ -14,10 +14,6 @@ CORS(app)
 def health_check():
     return jsonify({"status": "healthy"}), 200
 
-@app.route('/')
-def index():
-    return "Odia Learning API"
-
 # Import routes after app creation to avoid circular imports
 from src.routes import register_routes
 register_routes(app)
