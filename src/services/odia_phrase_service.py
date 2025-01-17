@@ -1,7 +1,7 @@
 from openai import OpenAI
 import json
 import logging
-from src.prompts.prompts_class import OdiaPhraseGeneration
+from src.prompts.prompts_class import OdiaPhraseGeneration, EnglishTranslation
 
 logger = logging.getLogger(__name__)
 
@@ -42,14 +42,47 @@ class OdiaPhraseService:
             logger.error(f"Error generating Odia phrases: {str(e)}")
             raise
 
-    def process_phrases(self):
-        """Generate just Odia phrases for now"""
+    def translate_to_english(self, odia_phrases):
+        """Translate Odia phrases to English"""
         try:
-            # Just generate Odia phrases
+            completion = self.client.chat.completions.create(
+                messages=EnglishTranslation.get_messages(odia_phrases),
+                model=self.model,
+                **self.get_model_config()
+            )
+
+            translations = json.loads(completion.choices[0].message.content.strip())
+            if not isinstance(translations, list):
+                raise ValueError("Expected a JSON array of translations")
+            
+            return translations
+
+        except Exception as e:
+            logger.error(f"Error translating to English: {str(e)}")
+            raise
+
+    def process_phrases(self):
+        """Generate Odia phrases with English translations"""
+        try:
+            # Step 1: Generate Odia phrases
             odia_phrases = self.generate_odia_phrases()
             
-            # Return simple format
-            return [{"odia": phrase} for phrase in odia_phrases]
+            # Step 2: Get English translations
+            translations = self.translate_to_english(odia_phrases)
+
+            # Step 3: Combine information
+            combined = []
+            for i, odia_phrase in enumerate(odia_phrases):
+                if i < len(translations):
+                    combined.append({
+                        "english": translations[i].get("english", ""),
+                        "odia": odia_phrase
+                    })
+
+            if not combined:
+                raise ValueError("No complete entries were generated")
+
+            return combined
 
         except Exception as e:
             logger.error(f"Error in phrase processing: {str(e)}")

@@ -79,7 +79,10 @@ HTML_TEMPLATE = """
                     data.translations.forEach(translation => {
                         const card = document.createElement('div');
                         card.className = 'translation-card';
-                        card.innerHTML = `<p>Odia: ${translation.odia}</p>`;
+                        card.innerHTML = `
+                            <h3>English: ${translation.english}</h3>
+                            <p>Odia: ${translation.odia}</p>
+                        `;
                         resultsElement.appendChild(card);
                     });
                 } else {
