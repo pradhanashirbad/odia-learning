@@ -31,8 +31,12 @@ def cleanup_session():
 
 # Create Flask app with explicit template folder
 template_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'templates')
+static_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static')
 logger.info(f"Template directory set to: {template_dir}")
-app = Flask(__name__, template_folder=template_dir)
+app = Flask(__name__, 
+    template_folder=template_dir,
+    static_folder=static_dir
+)
 CORS(app)
 
 # Initialize settings and services
@@ -209,27 +213,9 @@ def upload_session():
         }), 500
 
 if __name__ == '__main__':
-    try:
-        port = int(os.environ.get('PORT', 5001))
-        logger.info(f"Starting Flask app on port {port}")
-        logger.info(f"Current working directory: {os.getcwd()}")
-        logger.info(f"Python path: {sys.path}")
-        
-        # Check if we can bind to the port
-        import socket
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        result = sock.connect_ex(('127.0.0.1', port))
-        if result == 0:
-            logger.warning(f"Port {port} is already in use")
-        sock.close()
-        
-        app.run(
-            host='0.0.0.0',
-            port=port,
-            debug=True,
-            use_reloader=True,
-            threaded=True
-        )
-    except Exception as e:
-        logger.error(f"Error starting Flask app: {e}")
-        raise 
+    port = int(os.environ.get('PORT', 10000))
+    app.run(
+        host='0.0.0.0',
+        port=port,
+        debug=False  # Set to False for production
+    ) 

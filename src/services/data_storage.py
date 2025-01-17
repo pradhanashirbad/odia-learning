@@ -4,14 +4,18 @@ import time
 from datetime import datetime
 import logging
 import shutil
+import tempfile
 
 logger = logging.getLogger(__name__)
 
 class DataStorageService:
-    def __init__(self, blob_storage_service, base_dir="data"):
+    def __init__(self, blob_storage_service, base_dir=None):
+        """Initialize with configurable base directory"""
         self.blob_storage = blob_storage_service
-        self.base_dir = base_dir
-        self.words_dir = os.path.join(base_dir, "words")
+        
+        # Use /tmp for Render deployment
+        self.base_dir = base_dir or os.path.join(tempfile.gettempdir(), "odia_app_data")
+        self.words_dir = os.path.join(self.base_dir, "words")
         self.session_file = os.path.join(self.words_dir, "session.json")
         self._ensure_directories()
 
