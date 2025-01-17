@@ -169,7 +169,7 @@ class OdiaPhraseGeneration:
         return {
             "role": "system",
             "content": """You are an Odia language expert who generates common Odia phrases.
-            Return ONLY a JSON array of 10 Odia phrases.
+            Return ONLY a JSON array of 3 Odia phrases.
             Example format: ["ତୁମେ କେମିତି ଅଛ","ମୁଁ ଭଲ ଅଛି","ଆପଣଙ୍କୁ ଦେଖି ଖୁସି ଲାଗିଲା"]
             Rules:
             - Generate natural, everyday phrases
@@ -182,11 +182,11 @@ class OdiaPhraseGeneration:
     def get_generation_prompt(existing_phrases=None):
         if existing_phrases:
             content = f"""Existing Odia phrases: {', '.join(existing_phrases)}
-            Generate 10 NEW common Odia phrases (different from existing ones).
-            Return as simple JSON array: ["ଓଡ଼ିଆ ବାକ୍ୟ","ଆଉ ଏକ ବାକ୍ୟ"]"""
+            Generate 3 NEW common Odia phrases (different from existing ones).
+            Return as simple JSON array: ["ଓଡ଼ିଆ ବାକ୍ୟ","ଆଉ ଏକ ବାକ୍ୟ","ତୃତୀୟ ବାକ୍ୟ"]"""
         else:
-            content = """Generate 10 common Odia phrases used in daily life.
-            Return as simple JSON array: ["ଓଡ଼ିଆ ବାକ୍ୟ","ଆଉ ଏକ ବାକ୍ୟ"]"""
+            content = """Generate 3 common Odia phrases used in daily life.
+            Return as simple JSON array: ["ଓଡ଼ିଆ ବାକ୍ୟ","ଆଉ ଏକ ବାକ୍ୟ","ତୃତୀୟ ବାକ୍ୟ"]"""
 
         return {
             "role": "user",
