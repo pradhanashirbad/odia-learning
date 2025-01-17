@@ -4,18 +4,3 @@ services:
     env: python
     buildCommand: pip install -r requirements.txt
     startCommand: PYTHONPATH=$PYTHONPATH:/opt/render/project/src/src gunicorn --bind 0.0.0.0:$PORT src.app:app
-    envVars:
-      - key: PYTHON_VERSION
-        value: 3.9.0
-      - key: OPENAI_API_KEY
-        sync: false
-      - key: AZURE_STORAGE_CONNECTION_STRING
-        sync: false
-      - key: AZURE_STORAGE_ACCOUNT_NAME
-        sync: false
-      - key: AZURE_STORAGE_ACCOUNT_KEY
-        sync: false
-      - key: AZURE_SPEECH_KEY
-        sync: false
-      - key: AZURE_SPEECH_REGION
-        sync: false 
