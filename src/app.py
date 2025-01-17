@@ -50,7 +50,9 @@ try:
     
     # Initialize services
     settings = Settings()
-    client = OpenAI()
+    client = OpenAI(
+        api_key=os.getenv('OPENAI_API_KEY')
+    )
     blob_storage = BlobStorageService(settings.config)
     data_storage = DataStorageService(blob_storage)
     word_service = WordGenerationService(client, settings.config, settings.model_configs)
