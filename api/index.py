@@ -2,7 +2,10 @@ from flask import Flask, jsonify
 from flask_cors import CORS
 import os
 import sys
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# Add the project root to Python path
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, project_root)
 
 app = Flask(__name__)
 CORS(app)

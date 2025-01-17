@@ -1,11 +1,11 @@
 from flask import jsonify, request
-from services.odia_phrase_service import OdiaPhraseService
-from services.word_generation import WordGenerationService
-from services.translation_words import WordTranslationService
-from services.speech import SpeechService
-from services.blob_storage import BlobStorageService
-from services.data_storage import DataStorageService
-from config.settings import Settings
+from src.services.odia_phrase_service import OdiaPhraseService
+from src.services.word_generation import WordGenerationService
+from src.services.translation_words import WordTranslationService
+from src.services.speech import SpeechService
+from src.services.blob_storage import BlobStorageService
+from src.services.data_storage import DataStorageService
+from src.config.settings import Settings
 from openai import OpenAI
 import logging
 
