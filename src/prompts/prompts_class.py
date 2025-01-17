@@ -161,3 +161,105 @@ class PhraseGeneration:
         messages = [PhraseGeneration.get_system_prompt()]
         messages.append(PhraseGeneration.get_generation_prompt(existing_phrases))
         return messages 
+
+
+class OdiaPhraseGeneration:
+    @staticmethod
+    def get_system_prompt():
+        return {
+            "role": "system",
+            "content": """You are an Odia language expert who generates common Odia phrases.
+            Return ONLY a JSON array of 10 Odia phrases.
+            Example format: ["ତୁମେ କେମିତି ଅଛ","ମୁଁ ଭଲ ଅଛି","ଆପଣଙ୍କୁ ଦେଖି ଖୁସି ଲାଗିଲା"]
+            Rules:
+            - Generate natural, everyday phrases
+            - Use proper Odia script
+            - One line JSON array only
+            - No English or romanized text"""
+        }
+
+    @staticmethod
+    def get_generation_prompt(existing_phrases=None):
+        if existing_phrases:
+            content = f"""Existing Odia phrases: {', '.join(existing_phrases)}
+            Generate 10 NEW common Odia phrases (different from existing ones).
+            Return as simple JSON array: ["ଓଡ଼ିଆ ବାକ୍ୟ","ଆଉ ଏକ ବାକ୍ୟ"]"""
+        else:
+            content = """Generate 10 common Odia phrases used in daily life.
+            Return as simple JSON array: ["ଓଡ଼ିଆ ବାକ୍ୟ","ଆଉ ଏକ ବାକ୍ୟ"]"""
+
+        return {
+            "role": "user",
+            "content": content
+        }
+
+    @staticmethod
+    def get_messages(existing_phrases=None):
+        messages = [OdiaPhraseGeneration.get_system_prompt()]
+        messages.append(OdiaPhraseGeneration.get_generation_prompt(existing_phrases))
+        return messages
+
+
+class EnglishTranslation:
+    @staticmethod
+    def get_system_prompt():
+        return {
+            "role": "system",
+            "content": """You are an Odia to English translator.
+            Return a JSON array where each item contains the Odia text and its English translation.
+            Format: [{"odia":"ଓଡ଼ିଆ ବାକ୍ୟ","english":"English sentence"}]
+            IMPORTANT: You must return a valid JSON array.
+            - The response must start with [ and end with ]
+            - Each item must be a complete JSON object
+            - No trailing commas
+            - No line breaks in the output"""
+        }
+
+    @staticmethod
+    def get_translation_prompt(odia_phrases):
+        phrases_list = ", ".join([f'"{phrase}"' for phrase in odia_phrases])
+        return {
+            "role": "user",
+            "content": f"""Translate these Odia phrases to English: {phrases_list}
+            Return as JSON array: [{{"odia":"ତୁମେ କେମିତି ଅଛ","english":"how are you"}}]
+            IMPORTANT: Return ONLY the JSON array, nothing else.
+            Ensure the response is valid JSON that can be parsed."""
+        }
+
+    @staticmethod
+    def get_messages(phrases):
+        messages = [EnglishTranslation.get_system_prompt()]
+        messages.append(EnglishTranslation.get_translation_prompt(phrases))
+        return messages
+
+
+class RomanizedGeneration:
+    @staticmethod
+    def get_system_prompt():
+        return {
+            "role": "system",
+            "content": """You are an expert in romanizing Odia text.
+            Return a JSON array with Odia text and its romanized form.
+            Format: [{"odia":"ଓଡ଼ିଆ","romanized":"odia"}]
+            IMPORTANT: 
+            - Response must be valid JSON
+            - Must start with [ and end with ]
+            - Each item must have both 'odia' and 'romanized' fields
+            - No line breaks in the output
+            Use standard romanization rules for Odia."""
+        }
+
+    @staticmethod
+    def get_romanization_prompt(odia_phrases):
+        phrases_list = ", ".join([f'"{phrase}"' for phrase in odia_phrases])
+        return {
+            "role": "user",
+            "content": f"""Romanize these Odia phrases: {phrases_list}
+            Return as JSON array: [{{"odia":"ତୁମେ କେମିତି ଅଛ","romanized":"tume kemiti acha"}}]"""
+        }
+
+    @staticmethod
+    def get_messages(phrases):
+        messages = [RomanizedGeneration.get_system_prompt()]
+        messages.append(RomanizedGeneration.get_romanization_prompt(phrases))
+        return messages 
