@@ -5,6 +5,8 @@ ENV/
 
 # Python
 __pycache__/
+**/__pycache__
+*.pyc
 *.py[cod]
 *$py.class
 *.so
@@ -56,3 +58,8 @@ htmlcov/
 # Python cache directories in any subdirectory
 **/__pycache__/
 **/*.py[cod] 
+
+# Data files
+data/words/*
+!data/words/.gitkeep 
+data/words/audio_map.json 

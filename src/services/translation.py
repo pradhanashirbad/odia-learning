@@ -23,4 +23,5 @@ class TranslationService:
         translations = json.loads(completion.choices[0].message.content)
         if not isinstance(translations, list):
             raise ValueError("Expected a JSON array of translation objects")
+        
         return translations 
