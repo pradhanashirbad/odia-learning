@@ -48,4 +48,51 @@ def register_routes(app):
                 'error': str(e)
             }), 500
 
+    @app.route('/pronounce', methods=['POST'])
+    def pronounce():
+        try:
+            text = request.json.get('text')
+            if not text:
+                raise ValueError("No text provided")
+            
+            # Check if we have a cached audio URL
+            cached_url = data_storage.get_audio_url(text)
+            if cached_url:
+                return jsonify({
+                    'success': True,
+                    'audio_url': cached_url,
+                    'cached': True
+                })
+            
+            # Check if speech synthesis is available
+            if not speech_service.speech_enabled:
+                return jsonify({
+                    'success': False,
+                    'error': 'Speech synthesis not available in this environment',
+                    'feature_disabled': True
+                }), 503
+            
+            # Generate new audio if not cached
+            audio_url = speech_service.speak_odia(text)
+            
+            if not audio_url:
+                return jsonify({
+                    'success': False,
+                    'error': 'Failed to generate speech'
+                }), 500
+            
+            # Save the URL for future use
+            data_storage.save_audio_url(text, audio_url)
+            
+            return jsonify({
+                'success': True,
+                'audio_url': audio_url,
+                'cached': False
+            })
+        except Exception as e:
+            return jsonify({
+                'success': False,
+                'error': str(e)
+            }), 500
+
     # Add other routes here... 
