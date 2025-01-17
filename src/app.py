@@ -80,6 +80,17 @@ if __name__ == '__main__':
     try:
         port = int(os.environ.get('PORT', 5000))
         logger.info(f"Starting Flask app on port {port}")
+        logger.info(f"Current working directory: {os.getcwd()}")
+        logger.info(f"Python path: {sys.path}")
+        
+        # Check if we can bind to the port
+        import socket
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        result = sock.connect_ex(('127.0.0.1', port))
+        if result == 0:
+            logger.warning(f"Port {port} is already in use")
+        sock.close()
+        
         app.run(
             host='0.0.0.0',
             port=port,
