@@ -7,6 +7,7 @@
             "config": {
                 "maxLambdaSize": "10mb",
                 "pythonPath": ".",
+                "includeFiles": ["src/**/*"],
                 "runtime": "python3.9"
             }
         }

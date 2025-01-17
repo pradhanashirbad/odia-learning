@@ -1,6 +1,7 @@
 from openai import OpenAI
 import json
 import logging
+from src.prompts.prompts_class import OdiaPhraseGeneration
 
 logger = logging.getLogger(__name__)
 
@@ -20,8 +21,6 @@ class OdiaPhraseService:
 
     def generate_odia_phrases(self):
         """Generate Odia phrases"""
-        from prompts.prompts_class import OdiaPhraseGeneration
-        
         try:
             completion = self.client.chat.completions.create(
                 messages=OdiaPhraseGeneration.get_messages(),

@@ -7,6 +7,11 @@ import sys
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, project_root)
 
+# Ensure src directory is in path
+src_path = os.path.join(project_root, 'src')
+if src_path not in sys.path:
+    sys.path.insert(0, src_path)
+
 app = Flask(__name__)
 CORS(app)
 
