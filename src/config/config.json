@@ -13,5 +13,10 @@
     "language": {
         "primary": "odia",
         "fallback": "en-IN"
+    },
+    "storage": {
+        "provider": "azure_blob",
+        "container_name": "audiofiles",
+        "expiry_hours": 24
     }
 } 

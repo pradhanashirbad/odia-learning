@@ -11,21 +11,26 @@ from config.settings import Settings
 from services.word_generation import WordGenerationService
 from services.translation import TranslationService
 from services.speech import SpeechService
+from services.blob_storage import BlobStorageService
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = Flask(__name__)
+# Create Flask app with explicit template folder
+template_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'templates')
+logger.info(f"Template directory set to: {template_dir}")
+app = Flask(__name__, template_folder=template_dir)
 CORS(app)
 
 # Initialize settings and services
 try:
     settings = Settings()
     client = OpenAI()
+    blob_storage = BlobStorageService(settings.config)
     word_service = WordGenerationService(client, settings.config, settings.model_configs)
     translation_service = TranslationService(client, settings.config, settings.model_configs)
-    speech_service = SpeechService()
+    speech_service = SpeechService(blob_storage)
     logger.info("Services initialized successfully")
 except Exception as e:
     logger.error(f"Error initializing services: {e}")
@@ -37,16 +42,20 @@ def health_check():
 
 @app.route('/')
 def index():
+    template_path = os.path.join(template_dir, 'index.html')
+    logger.info(f"Looking for template at: {template_path}")
+    if os.path.exists(template_path):
+        logger.info("Template file found!")
+    else:
+        logger.error(f"Template file NOT found at: {template_path}")
+        # List contents of templates directory
+        if os.path.exists(template_dir):
+            logger.info(f"Contents of {template_dir}:")
+            for file in os.listdir(template_dir):
+                logger.info(f"- {file}")
+        else:
+            logger.error(f"Templates directory does not exist at: {template_dir}")
     return render_template('index.html')
-
-@app.route('/audio/<filename>')
-def serve_audio(filename):
-    """Serve audio files from the temporary directory"""
-    audio_dir = os.path.join(tempfile.gettempdir(), 'odia_audio')
-    return send_file(
-        os.path.join(audio_dir, filename),
-        mimetype='audio/wav'
-    )
 
 @app.route('/generate', methods=['POST'])
 def generate():
@@ -59,11 +68,9 @@ def generate():
         
         # Generate speech for each translation and add audio URLs
         for translation in translations:
-            audio_file = speech_service.speak_odia(translation['odia'])
-            # Get just the filename from the full path
-            audio_filename = os.path.basename(audio_file)
-            # Add the audio URL to the translation
-            translation['audio_url'] = f'/audio/{audio_filename}'
+            audio_url = speech_service.speak_odia(translation['odia'])
+            # Add the SAS URL directly to the translation
+            translation['audio_url'] = audio_url
         
         return jsonify({
             'success': True,
@@ -78,7 +85,7 @@ def generate():
 
 if __name__ == '__main__':
     try:
-        port = int(os.environ.get('PORT', 5000))
+        port = int(os.environ.get('PORT', 5001))
         logger.info(f"Starting Flask app on port {port}")
         logger.info(f"Current working directory: {os.getcwd()}")
         logger.info(f"Python path: {sys.path}")

@@ -52,11 +52,9 @@
     <div id="results"></div>
 
     <script>
-        // Get the base URL dynamically
         const baseUrl = window.location.origin;
 
         function playAudio(url) {
-            // Ensure we're using the full URL
             const fullUrl = url.startsWith('http') ? url : `${baseUrl}${url}`;
             new Audio(fullUrl).play();
         }
@@ -68,7 +66,6 @@
             loadingElement.style.display = 'block';
             resultsElement.innerHTML = '';
             
-            // Use the base URL for the fetch request
             fetch(`${baseUrl}/generate`, {
                 method: 'POST',
                 headers: {
