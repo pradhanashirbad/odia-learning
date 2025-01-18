@@ -19,13 +19,13 @@ class OdiaPhraseService:
         """Check if text contains Odia characters"""
         return any('\u0B00' <= char <= '\u0B7F' for char in text)
 
-    def generate_content(self, gen_type='words'):
+    def generate_content(self, gen_type='words', existing_words=None):
         """Generate words or phrases"""
         try:
             if gen_type == 'words':
-                messages = WordGeneration.get_messages()
+                messages = WordGeneration.get_messages(existing_words)
             else:
-                messages = OdiaPhraseGeneration.get_messages()
+                messages = OdiaPhraseGeneration.get_messages(existing_words)
 
             completion = self.client.chat.completions.create(
                 messages=messages,
@@ -96,17 +96,17 @@ class OdiaPhraseService:
             logger.error(f"Error translating to English: {str(e)}")
             raise
 
-    def process_phrases(self, gen_type='words'):
+    def process_phrases(self, gen_type='words', existing_words=None):
         """Generate and process content"""
         try:
             if gen_type == 'words':
                 # Generate English words and translate to Odia
-                words = self.generate_content('words')
+                words = self.generate_content('words', existing_words)
                 translations = self.translate_to_odia(words)
                 return translations
             else:
                 # Generate Odia phrases and translate to English
-                odia_phrases = self.generate_content('phrases')
+                odia_phrases = self.generate_content('phrases', existing_words)
                 translations = self.translate_to_english(odia_phrases)
                 return translations
 

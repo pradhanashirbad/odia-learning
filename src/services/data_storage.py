@@ -90,12 +90,30 @@ class DataStorageService:
             logger.error(f"Error saving permanent copy: {e}")
             raise
 
-    def get_existing_words(self, username=None):
-        """Get existing words from user's session"""
+    def get_all_user_translations(self, username):
+        """Get all translations from user's previous sessions"""
         try:
-            # For this implementation, we don't need to check existing words
-            # since we're creating new files each time
-            return []
+            user_dir = self._get_user_dir(username)
+            if not os.path.exists(user_dir):
+                return []
+
+            all_translations = []
+            # Read all JSON files in user's directory
+            for filename in os.listdir(user_dir):
+                if filename.endswith('.json'):
+                    file_path = os.path.join(user_dir, filename)
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        translations = json.load(f)
+                        if isinstance(translations, list):
+                            all_translations.extend(translations)
+
+            logger.info(f"Found {len(all_translations)} previous translations for user: {username}")
+            return all_translations
         except Exception as e:
-            logger.error(f"Error getting existing words: {e}")
-            return [] 
+            logger.error(f"Error reading user translations: {e}")
+            return []
+
+    def get_existing_words(self, username=None):
+        """Get existing words from user's previous sessions"""
+        translations = self.get_all_user_translations(username)
+        return [item.get('english', '') for item in translations if 'english' in item] 

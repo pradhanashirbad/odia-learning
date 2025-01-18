@@ -10,14 +10,16 @@ class WordGeneration:
             - No punctuation marks in the content
             - No special characters
             - No line breaks
-            - Just a simple JSON array of strings"""
+            - Just a simple JSON array of strings
+            - Generate different words from the existing ones provided"""
         }
 
     @staticmethod
     def get_generation_prompt(existing_words=None):
         if existing_words:
-            content = f"""Existing words: {', '.join(existing_words)}
-            Generate 5 NEW English words (different from existing ones).
+            content = f"""User has already learned these words: {', '.join(existing_words)}
+            Generate 5 NEW English words that would be useful to learn next.
+            Make sure not to repeat any existing words.
             Return as simple JSON array: ["word1","word2","word3","word4","word5"]"""
         else:
             content = """Generate 5 common English words used in daily life.
@@ -146,20 +148,23 @@ class OdiaPhraseGeneration:
         return {
             "role": "system",
             "content": """You are an Odia language expert who generates common Odia phrases.
+            You must generate phrases different from any existing ones provided.
             Return ONLY a JSON array of 5 Odia phrases.
             Example format: ["ତୁମେ କେମିତି ଅଛ","ମୁଁ ଭଲ ଅଛି","ଆପଣଙ୍କୁ ଦେଖି ଖୁସି ଲାଗିଲା","ଧନ୍ୟବାଦ","ନମସ୍କାର"]
             Rules:
             - Generate natural, everyday phrases
             - Use proper Odia script
             - One line JSON array only
-            - No English or romanized text"""
+            - No English or romanized text
+            - Avoid repeating existing phrases"""
         }
 
     @staticmethod
     def get_generation_prompt(existing_phrases=None):
         if existing_phrases:
-            content = f"""Existing Odia phrases: {', '.join(existing_phrases)}
-            Generate 5 NEW common Odia phrases (different from existing ones).
+            content = f"""User has already learned these Odia phrases: {', '.join(existing_phrases)}
+            Generate 5 NEW common Odia phrases that would be useful to learn next.
+            Make sure not to repeat any existing phrases.
             Return as simple JSON array: ["ଓଡ଼ିଆ ବାକ୍ୟ","ଆଉ ଏକ ବାକ୍ୟ","ତୃତୀୟ ବାକ୍ୟ","ଚତୁର୍ଥ ବାକ୍ୟ","ପଞ୍ଚମ ବାକ୍ୟ"]"""
         else:
             content = """Generate 5 common Odia phrases used in daily life.

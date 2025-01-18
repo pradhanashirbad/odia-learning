@@ -230,7 +230,13 @@ def register_routes(app):
                 
             # Get existing words for duplicate checking
             existing_words = data_storage.get_existing_words(username)
-            new_translations = odia_phrase_service.process_phrases(gen_type=gen_type)
+            logger.info(f"Found {len(existing_words)} existing words for user: {username}")
+            
+            # Pass existing words to avoid duplicates
+            new_translations = odia_phrase_service.process_phrases(
+                gen_type=gen_type, 
+                existing_words=existing_words
+            )
             
             # Save locally with username
             data_storage.save_session_data(new_translations, username)
@@ -265,6 +271,29 @@ def register_routes(app):
             })
         except Exception as e:
             logger.error(f"Detailed error in save_session: {str(e)}")
+            return jsonify({
+                'success': False,
+                'error': str(e)
+            }), 500 
+
+    @app.route('/load-session', methods=['POST'])
+    def load_session():
+        try:
+            username = request.json.get('username')
+            if not username:
+                raise ValueError("Username is required")
+                
+            logger.info(f"Loading previous sessions for user: {username}")
+            
+            # Get all previous translations
+            translations = data_storage.get_all_user_translations(username)
+            
+            return jsonify({
+                'success': True,
+                'translations': translations
+            })
+        except Exception as e:
+            logger.error(f"Error loading session: {str(e)}")
             return jsonify({
                 'success': False,
                 'error': str(e)
