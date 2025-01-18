@@ -1,7 +1,5 @@
-from flask import jsonify, request, send_from_directory, render_template_string
+from flask import jsonify, request, render_template_string
 from src.services.odia_phrase_service import OdiaPhraseService
-from src.services.blob_storage import BlobStorageService
-from src.services.data_storage import DataStorageService
 from src.config.settings import Settings
 from openai import OpenAI
 import logging
@@ -41,30 +39,16 @@ HTML_TEMPLATE = """
             border: none;
             border-radius: 5px;
             cursor: pointer;
-            margin-right: 10px;
         }
         button:hover {
             background-color: #45a049;
-        }
-        #saveButton {
-            background-color: #2196F3;
-        }
-        #saveButton:hover {
-            background-color: #1976D2;
-        }
-        #saveButton:disabled {
-            background-color: #ccc;
-            cursor: not-allowed;
         }
     </style>
 </head>
 <body>
     <h1>Odia Learning App</h1>
     
-    <div>
-        <button onclick="generatePhrases()">Generate Odia Phrases</button>
-        <button id="saveButton" onclick="saveSession()" style="display: none;">Save Session</button>
-    </div>
+    <button onclick="generatePhrases()">Generate Odia Phrases</button>
     <p id="loading" class="loading">Generating phrases...</p>
     
     <div id="results"></div>
@@ -75,11 +59,9 @@ HTML_TEMPLATE = """
         function generatePhrases() {
             const loadingElement = document.getElementById('loading');
             const resultsElement = document.getElementById('results');
-            const saveButton = document.getElementById('saveButton');
             
             loadingElement.style.display = 'block';
             resultsElement.innerHTML = '';
-            saveButton.style.display = 'none';
             
             fetch(`${baseUrl}/generate`, {
                 method: 'POST',
@@ -103,7 +85,6 @@ HTML_TEMPLATE = """
                         `;
                         resultsElement.appendChild(card);
                     });
-                    saveButton.style.display = 'inline-block';
                 } else {
                     resultsElement.innerHTML = `<p style="color: red;">Error: ${data.error}</p>`;
                 }
@@ -111,35 +92,6 @@ HTML_TEMPLATE = """
             .catch(error => {
                 loadingElement.style.display = 'none';
                 resultsElement.innerHTML = `<p style="color: red;">Error: ${error}</p>`;
-            });
-        }
-
-        function saveSession() {
-            const saveButton = document.getElementById('saveButton');
-            saveButton.disabled = true;
-            saveButton.textContent = 'Saving...';
-            
-            fetch(`${baseUrl}/save-session`, {
-                method: 'POST',
-                headers: {
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json'
-                }
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    alert('Session saved successfully!');
-                } else {
-                    alert(`Error saving session: ${data.error}`);
-                }
-            })
-            .catch(error => {
-                alert(`Error saving session: ${error}`);
-            })
-            .finally(() => {
-                saveButton.disabled = false;
-                saveButton.textContent = 'Save Session';
             });
         }
     </script>
@@ -150,8 +102,6 @@ HTML_TEMPLATE = """
 def register_routes(app):
     settings = Settings()
     client = OpenAI()
-    blob_storage = BlobStorageService(settings.config)
-    data_storage = DataStorageService(blob_storage)
     odia_phrase_service = OdiaPhraseService(client, settings.config, settings.model_configs)
 
     @app.route('/')
@@ -162,41 +112,13 @@ def register_routes(app):
     def generate():
         try:
             new_translations = odia_phrase_service.process_phrases()
-            storage_info = data_storage.save_session_data(new_translations)
-            
             return jsonify({
                 'success': True,
-                'translations': new_translations,
-                'storage_info': storage_info
+                'translations': new_translations
             })
         except Exception as e:
             logger.error(f"Error in generate: {str(e)}")
             return jsonify({
                 'success': False,
                 'error': str(e)
-            }), 500
-
-    @app.route('/save-session', methods=['POST'])
-    def save_session():
-        try:
-            storage_info = data_storage.save_permanent_copy()
-            return jsonify({
-                'success': True,
-                'storage_info': storage_info
-            })
-        except Exception as e:
-            logger.error(f"Error saving session: {str(e)}")
-            return jsonify({
-                'success': False,
-                'error': str(e)
-            }), 500
-
-    @app.route('/pronounce', methods=['POST'])
-    def pronounce():
-        return jsonify({
-            'success': False,
-            'error': 'Speech synthesis not available in this environment',
-            'feature_disabled': True
-        }), 503
-
-    # Add other routes here... 
+            }), 500 

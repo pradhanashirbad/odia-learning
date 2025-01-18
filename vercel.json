@@ -7,7 +7,7 @@
             "config": {
                 "maxLambdaSize": "10mb",
                 "pythonPath": ".",
-                "includeFiles": ["src/**/*", "data/words/**"],
+                "includeFiles": ["src/**/*"],
                 "runtime": "python3.9",
                 "maxDuration": 60
             }
