@@ -61,6 +61,18 @@ class DataStorageService:
             logger.error(f"Error saving session data: {e}")
             return None
 
+    def load_session_data(self, username):
+        """Load existing session data for a user"""
+        try:
+            session_file = self._get_session_filepath(username)
+            if os.path.exists(session_file):
+                with open(session_file, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+            return []
+        except Exception as e:
+            logger.error(f"Error loading session data: {e}")
+            return []
+
     async def save_permanent_copy(self, username=None):
         """Save permanent copy to blob storage"""
         try:
@@ -79,8 +91,8 @@ class DataStorageService:
                 data = json.load(f)
 
             if self.blob_storage:
-                # Upload to blob storage with the same filename
-                blob_name = f"{username}_session.json"  # Simplified blob name
+                # Use consistent filename for the user
+                blob_name = f"{username}_session.json"
                 
                 # Upload to blob storage (this will overwrite existing file)
                 blob_url = await self.blob_storage.upload_blob(
