@@ -8,7 +8,8 @@
                 "maxLambdaSize": "10mb",
                 "pythonPath": ".",
                 "includeFiles": ["src/**/*", "data/words/**"],
-                "runtime": "python3.9"
+                "runtime": "python3.9",
+                "maxDuration": 60
             }
         }
     ],
