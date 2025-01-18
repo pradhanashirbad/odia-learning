@@ -10,6 +10,7 @@ class DataStorageService:
         self.blob_storage = blob_storage
         self.base_dir = os.path.join(os.getcwd(), "datafiles")
         self._ensure_directories()
+        self.current_translations = None  # Store current translations in memory
 
     def _ensure_directories(self):
         """Ensure datafiles directory exists"""
@@ -42,6 +43,9 @@ class DataStorageService:
             # Save data with pretty formatting
             with open(session_file, 'w', encoding='utf-8') as f:
                 json.dump(translations, f, ensure_ascii=False, indent=4)
+            
+            # Store current translations in memory
+            self.current_translations = translations
             return {"local_path": session_file}
         except Exception as e:
             logger.error(f"Error saving session data: {e}")
@@ -50,24 +54,17 @@ class DataStorageService:
     async def save_permanent_copy(self, username=None):
         """Save permanent copy to blob storage"""
         try:
-            session_file = self._get_session_filepath(username)
-            logger.info(f"Saving permanent copy from: {session_file}")
-            
-            # Create new file with current translations
-            os.makedirs(os.path.dirname(session_file), exist_ok=True)
-            
+            if not self.current_translations:
+                raise ValueError("No translations available to save")
+
             if self.blob_storage:
                 # Use timestamped filename for blob storage
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                 blob_name = f"{username}_session_{timestamp}.json"
                 
-                # Get the most recent translations
-                with open(session_file, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-
                 # Upload to blob storage with pretty formatting
                 blob_url = await self.blob_storage.upload_blob(
-                    json.dumps(data, ensure_ascii=False, indent=4),
+                    json.dumps(self.current_translations, ensure_ascii=False, indent=4),
                     blob_name
                 )
 
@@ -80,7 +77,7 @@ class DataStorageService:
                 }
             else:
                 logger.warning("No blob storage configured")
-                return {"local_path": session_file}
+                return {"local_path": None}
 
         except Exception as e:
             logger.error(f"Error saving permanent copy: {e}")
