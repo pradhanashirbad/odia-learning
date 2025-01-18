@@ -232,19 +232,18 @@ def register_routes(app):
             existing_words = data_storage.get_existing_words(username)
             logger.info(f"Found {len(existing_words)} existing words for user: {username}")
             
-            # Generate new translations
+            # Pass existing words to avoid duplicates
             new_translations = odia_phrase_service.process_phrases(
                 gen_type=gen_type, 
                 existing_words=existing_words
             )
             
-            # Add to current session
-            all_translations = data_storage.add_translations(new_translations)
+            # Save locally with username
+            data_storage.save_session_data(new_translations, username)
             
             return jsonify({
                 'success': True,
-                'translations': new_translations,
-                'all_translations': all_translations
+                'translations': new_translations
             })
         except Exception as e:
             logger.error(f"Error in generate: {str(e)}")
