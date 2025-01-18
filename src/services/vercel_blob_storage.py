@@ -7,8 +7,8 @@ logger = logging.getLogger(__name__)
 
 class VercelBlobStorage:
     def __init__(self, config):
-        self.container_name = config['storage']['container_name']
-        self.expiry_hours = config['storage']['expiry_hours']
+        self.container_name = config['vercel_storage']['container_name']
+        self.expiry_hours = config['vercel_storage']['expiry_hours']
 
     async def upload_blob(self, data, blob_name):
         """Upload data to Vercel Blob Storage"""

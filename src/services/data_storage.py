@@ -53,9 +53,9 @@ class DataStorageService:
             # Create parent directory if it doesn't exist
             os.makedirs(os.path.dirname(session_file), exist_ok=True)
 
-            # Save combined data
+            # Save combined data with pretty formatting
             with open(session_file, 'w', encoding='utf-8') as f:
-                json.dump(existing_data, f, ensure_ascii=False, indent=2)
+                json.dump(existing_data, f, ensure_ascii=False, indent=4)
             return {"local_path": session_file}
         except Exception as e:
             logger.error(f"Error saving session data: {e}")
@@ -83,7 +83,7 @@ class DataStorageService:
             if not os.path.exists(session_file):
                 os.makedirs(os.path.dirname(session_file), exist_ok=True)
                 with open(session_file, 'w', encoding='utf-8') as f:
-                    json.dump([], f, ensure_ascii=False, indent=2)
+                    json.dump([], f, ensure_ascii=False, indent=4)
                 logger.info(f"Created new session file for user: {username}")
 
             # Read the file (whether it was just created or existed)
@@ -94,9 +94,9 @@ class DataStorageService:
                 # Use consistent filename for the user
                 blob_name = f"{username}_session.json"
                 
-                # Upload to blob storage (this will overwrite existing file)
+                # Upload to blob storage with pretty formatting
                 blob_url = await self.blob_storage.upload_blob(
-                    json.dumps(data, ensure_ascii=False).encode('utf-8'),
+                    json.dumps(data, ensure_ascii=False, indent=4),
                     blob_name
                 )
 
