@@ -1,7 +1,7 @@
 import os
 from datetime import datetime
 import logging
-from vercel_blob import put, del_
+from vercel_blob import put, delete
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +23,7 @@ class VercelBlobStorage:
     async def delete_blob(self, blob_name):
         """Delete blob from Vercel Blob Storage"""
         try:
-            await del_(blob_name)
+            await delete(blob_name)
             return True
         except Exception as e:
             logger.error(f"Error deleting from Vercel Blob: {e}")
