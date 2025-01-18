@@ -3,8 +3,8 @@ from src.services.odia_phrase_service import OdiaPhraseService
 from src.config.settings import Settings
 from openai import OpenAI
 import logging
+from src.services.vercel_blob_storage import VercelBlobStorage
 from src.services.data_storage import DataStorageService
-from src.services.blob_storage import BlobStorageService
 
 logger = logging.getLogger(__name__)
 
@@ -41,64 +41,34 @@ HTML_TEMPLATE = """
             border: none;
             border-radius: 5px;
             cursor: pointer;
-            margin: 5px;
         }
         button:hover {
             background-color: #45a049;
         }
-        button:disabled {
-            background-color: #ccc;
-            cursor: not-allowed;
-        }
-        .controls {
-            margin: 20px 0;
-        }
         .radio-group {
             margin: 10px 0;
-        }
-        .pagination {
-            margin-top: 20px;
-            display: none;
-            justify-content: center;
-            gap: 10px;
-        }
-        .pagination button {
-            background-color: #2196F3;
-        }
-        .pagination button:hover {
-            background-color: #1976D2;
         }
     </style>
 </head>
 <body>
     <h1>Odia Learning App</h1>
     
-    <div class="controls">
-        <div class="radio-group">
-            <label>
-                <input type="radio" name="genType" value="words" checked> Words
-            </label>
-            <label>
-                <input type="radio" name="genType" value="phrases"> Phrases
-            </label>
-        </div>
-        <button onclick="generateContent()">Generate Content</button>
+    <div class="radio-group">
+        <label>
+            <input type="radio" name="genType" value="words" checked> Words
+        </label>
+        <label>
+            <input type="radio" name="genType" value="phrases"> Phrases
+        </label>
     </div>
     
+    <button onclick="generateContent()">Generate Content</button>
     <p id="loading" class="loading">Generating content...</p>
     
     <div id="results"></div>
-    
-    <div id="pagination" class="pagination">
-        <button onclick="showPreviousPage()" id="prevButton">Previous</button>
-        <button onclick="showNextPage()" id="nextButton">Next</button>
-    </div>
 
     <script>
         const baseUrl = window.location.origin;
-        const ITEMS_PER_PAGE = 5;
-        let allTranslations = [];
-        let currentPageIndex = 0;
         
         function getSelectedType() {
             return document.querySelector('input[name="genType"]:checked').value;
@@ -107,11 +77,9 @@ HTML_TEMPLATE = """
         function generateContent() {
             const loadingElement = document.getElementById('loading');
             const resultsElement = document.getElementById('results');
-            const paginationElement = document.getElementById('pagination');
             
             loadingElement.style.display = 'block';
             resultsElement.innerHTML = '';
-            paginationElement.style.display = 'none';
             
             fetch(`${baseUrl}/generate`, {
                 method: 'POST',
@@ -126,10 +94,15 @@ HTML_TEMPLATE = """
                 loadingElement.style.display = 'none';
                 
                 if (data.success) {
-                    allTranslations = data.translations;
-                    currentPageIndex = 0;
-                    displayCurrentPage();
-                    paginationElement.style.display = 'flex';
+                    data.translations.forEach(translation => {
+                        const card = document.createElement('div');
+                        card.className = 'translation-card';
+                        card.innerHTML = `
+                            <h3>English: ${translation.english}</h3>
+                            <p>Odia: ${translation.odia}</p>
+                        `;
+                        resultsElement.appendChild(card);
+                    });
                 } else {
                     resultsElement.innerHTML = `<p style="color: red;">Error: ${data.error}</p>`;
                 }
@@ -139,48 +112,6 @@ HTML_TEMPLATE = """
                 resultsElement.innerHTML = `<p style="color: red;">Error: ${error}</p>`;
             });
         }
-        
-        function displayCurrentPage() {
-            const resultsElement = document.getElementById('results');
-            const startIndex = currentPageIndex * ITEMS_PER_PAGE;
-            const endIndex = startIndex + ITEMS_PER_PAGE;
-            const currentItems = allTranslations.slice(startIndex, endIndex);
-            
-            resultsElement.innerHTML = '';
-            currentItems.forEach(translation => {
-                const card = document.createElement('div');
-                card.className = 'translation-card';
-                card.innerHTML = `
-                    <h3>English: ${translation.english}</h3>
-                    <p>Odia: ${translation.odia}</p>
-                `;
-                resultsElement.appendChild(card);
-            });
-            
-            updatePaginationButtons();
-        }
-        
-        function showNextPage() {
-            if ((currentPageIndex + 1) * ITEMS_PER_PAGE < allTranslations.length) {
-                currentPageIndex++;
-                displayCurrentPage();
-            }
-        }
-        
-        function showPreviousPage() {
-            if (currentPageIndex > 0) {
-                currentPageIndex--;
-                displayCurrentPage();
-            }
-        }
-        
-        function updatePaginationButtons() {
-            const prevButton = document.getElementById('prevButton');
-            const nextButton = document.getElementById('nextButton');
-            
-            prevButton.disabled = currentPageIndex === 0;
-            nextButton.disabled = (currentPageIndex + 1) * ITEMS_PER_PAGE >= allTranslations.length;
-        }
     </script>
 </body>
 </html>
@@ -189,7 +120,7 @@ HTML_TEMPLATE = """
 def register_routes(app):
     settings = Settings()
     client = OpenAI()
-    blob_storage = BlobStorageService(settings.config)
+    blob_storage = VercelBlobStorage(settings.config)
     data_storage = DataStorageService(blob_storage)
     odia_phrase_service = OdiaPhraseService(client, settings.config, settings.model_configs)
 
@@ -202,10 +133,6 @@ def register_routes(app):
         try:
             gen_type = request.json.get('type', 'words')
             new_translations = odia_phrase_service.process_phrases(gen_type=gen_type)
-            
-            # Just save locally
-            data_storage.save_session_data(new_translations)
-            
             return jsonify({
                 'success': True,
                 'translations': new_translations
@@ -215,12 +142,12 @@ def register_routes(app):
             return jsonify({
                 'success': False,
                 'error': str(e)
-            }), 500
+            }), 500 
 
     @app.route('/save-session', methods=['POST'])
-    def save_session():
+    async def save_session():
         try:
-            storage_info = data_storage.save_permanent_copy()
+            storage_info = await data_storage.save_permanent_copy()
             return jsonify({
                 'success': True,
                 'storage_info': storage_info
