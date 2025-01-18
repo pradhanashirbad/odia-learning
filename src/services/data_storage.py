@@ -24,21 +24,27 @@ class DataStorageService:
             os.makedirs(self.base_dir, exist_ok=True)
             logger.info("Using /tmp directory as fallback")
 
+    def _get_user_dir(self, username):
+        """Get user-specific directory"""
+        return os.path.join(self.base_dir, username)
+
     def _get_session_filepath(self, username):
         """Get full path to session file with timestamp"""
         if not username:
             raise ValueError("Username is required")
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        return os.path.join(self.base_dir, f"{username}_session_{timestamp}.json")
+        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")  # Removed underscore
+        user_dir = self._get_user_dir(username)
+        return os.path.join(user_dir, f"session_{timestamp}.json")
 
     def save_session_data(self, translations, username=None):
         """Save session data to a new timestamped file"""
         try:
+            # Create user directory if it doesn't exist
+            user_dir = self._get_user_dir(username)
+            os.makedirs(user_dir, exist_ok=True)
+            
             session_file = self._get_session_filepath(username)
             logger.info(f"Saving session data to: {session_file}")
-            
-            # Create parent directory if it doesn't exist
-            os.makedirs(os.path.dirname(session_file), exist_ok=True)
 
             # Save data with pretty formatting
             with open(session_file, 'w', encoding='utf-8') as f:
@@ -59,8 +65,9 @@ class DataStorageService:
 
             if self.blob_storage:
                 # Use timestamped filename for blob storage
-                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                blob_name = f"{username}_session_{timestamp}.json"
+                timestamp = datetime.now().strftime("%Y%m%d%H%M%S")  # Removed underscore
+                # Include username folder in blob path
+                blob_name = f"{username}/session_{timestamp}.json"
                 
                 # Upload to blob storage with pretty formatting
                 blob_url = await self.blob_storage.upload_blob(
