@@ -11,7 +11,6 @@ class DataStorageService:
         # Use datafiles directory in root
         self.base_dir = "datafiles"
         self._ensure_directories()
-        self.session_file = None
 
     def _ensure_directories(self):
         """Ensure datafiles directory exists"""
@@ -21,23 +20,21 @@ class DataStorageService:
             logger.error(f"Error creating directories: {e}")
             # Don't raise the error, just log it
 
-    def _get_session_filename(self, username):
-        """Get session filename for user"""
-        return f"{username}_session.json" if username else "session.json"
+    def _get_session_filepath(self, username):
+        """Get full path to session file"""
+        if not username:
+            raise ValueError("Username is required")
+        return os.path.join(self.base_dir, f"{username}_session.json")
 
     def save_session_data(self, translations, username=None):
         """Save session data locally by appending new translations"""
         try:
-            if not username:
-                raise ValueError("Username is required")
-
-            # Set session file path
-            self.session_file = os.path.join(self.base_dir, self._get_session_filename(username))
+            session_file = self._get_session_filepath(username)
             
             # Read existing data if file exists
             existing_data = []
-            if os.path.exists(self.session_file):
-                with open(self.session_file, 'r', encoding='utf-8') as f:
+            if os.path.exists(session_file):
+                with open(session_file, 'r', encoding='utf-8') as f:
                     existing_data = json.load(f)
             
             # Append new translations
@@ -47,9 +44,9 @@ class DataStorageService:
                 existing_data = translations
 
             # Save combined data
-            with open(self.session_file, 'w', encoding='utf-8') as f:
+            with open(session_file, 'w', encoding='utf-8') as f:
                 json.dump(existing_data, f, ensure_ascii=False, indent=2)
-            return {"local_path": self.session_file}
+            return {"local_path": session_file}
         except Exception as e:
             logger.error(f"Error saving session data: {e}")
             return None
@@ -57,21 +54,17 @@ class DataStorageService:
     async def save_permanent_copy(self, username=None):
         """Save permanent copy to blob storage"""
         try:
-            if not username:
-                raise ValueError("Username is required")
-
-            # Use the same session file
-            self.session_file = os.path.join(self.base_dir, self._get_session_filename(username))
+            session_file = self._get_session_filepath(username)
             
-            if not os.path.exists(self.session_file):
-                raise FileNotFoundError("No active session to save")
+            if not os.path.exists(session_file):
+                raise FileNotFoundError(f"No session file found for user: {username}")
 
-            with open(self.session_file, 'r', encoding='utf-8') as f:
+            with open(session_file, 'r', encoding='utf-8') as f:
                 data = json.load(f)
 
             if self.blob_storage:
                 # Upload to blob storage with the same filename
-                blob_name = f"datafiles/{self._get_session_filename(username)}"
+                blob_name = f"datafiles/{os.path.basename(session_file)}"
                 
                 # Upload to blob storage (this will overwrite existing file)
                 blob_url = await self.blob_storage.upload_blob(
@@ -88,7 +81,7 @@ class DataStorageService:
                 }
             else:
                 logger.warning("No blob storage configured")
-                return {"local_path": self.session_file}
+                return {"local_path": session_file}
 
         except Exception as e:
             logger.error(f"Error saving permanent copy: {e}")
@@ -97,12 +90,9 @@ class DataStorageService:
     def get_existing_words(self, username=None):
         """Get existing words from user's session"""
         try:
-            if not username:
-                return []
-
-            file_path = os.path.join(self.base_dir, self._get_session_filename(username))
-            if os.path.exists(file_path):
-                with open(file_path, 'r', encoding='utf-8') as f:
+            session_file = self._get_session_filepath(username)
+            if os.path.exists(session_file):
+                with open(session_file, 'r', encoding='utf-8') as f:
                     data = json.load(f)
                 return [item.get('english', '') for item in data if 'english' in item]
             return []

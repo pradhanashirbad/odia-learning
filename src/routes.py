@@ -250,6 +250,9 @@ def register_routes(app):
     def save_session():
         try:
             username = request.json.get('username')
+            if not username:
+                raise ValueError("Username is required")
+                
             logger.info(f"Starting save_session operation for user: {username}")
             
             # Convert async function to sync
