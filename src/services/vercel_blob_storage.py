@@ -1,7 +1,7 @@
 import os
 from datetime import datetime
 import logging
-from vercel_blob import put, delete, Client
+from vercel_blob import put, delete
 
 logger = logging.getLogger(__name__)
 
@@ -9,8 +9,6 @@ class VercelBlobStorage:
     def __init__(self, config):
         self.container_name = config['storage']['container_name']
         self.expiry_hours = config['storage']['expiry_hours']
-        # Initialize Vercel Blob client
-        self.client = Client()
 
     async def upload_blob(self, data, blob_name):
         """Upload data to Vercel Blob Storage"""
@@ -19,11 +17,15 @@ class VercelBlobStorage:
             
             # Upload to Vercel Blob with pathname
             pathname = f"{self.container_name}/{blob_name}"
-            # Use the client instance for upload
-            blob = await self.client.put(pathname, data, {'access': 'public'})
+            # Use put function directly
+            result = await put(pathname, data, {'access': 'public'})
             
-            logger.info(f"Upload successful. URL: {blob.url}")
-            return blob.url
+            if hasattr(result, 'url'):
+                logger.info(f"Upload successful. URL: {result.url}")
+                return result.url
+            else:
+                logger.info(f"Upload successful. Result: {result}")
+                return result
 
         except Exception as e:
             logger.error(f"Detailed error uploading to Vercel Blob: {str(e)}")
@@ -33,8 +35,8 @@ class VercelBlobStorage:
         """Delete blob from Vercel Blob Storage"""
         try:
             pathname = f"{self.container_name}/{blob_name}"
-            # Use the client instance for delete
-            await self.client.delete(pathname)
+            # Use delete function directly
+            await delete(pathname)
             return True
         except Exception as e:
             logger.error(f"Error deleting from Vercel Blob: {e}")
