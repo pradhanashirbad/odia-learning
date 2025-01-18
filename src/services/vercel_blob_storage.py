@@ -1,6 +1,7 @@
 import os
 from datetime import datetime
 import logging
+import asyncio
 from vercel_blob import put, delete
 
 logger = logging.getLogger(__name__)
@@ -15,16 +16,25 @@ class VercelBlobStorage:
         try:
             logger.info(f"Attempting to upload blob: {blob_name}")
             
-            # Upload to Vercel Blob with pathname
-            pathname = f"{self.container_name}/{blob_name}"
-            result = await put(pathname, data, {'access': 'public'})
+            # Convert data to bytes if it's not already
+            if isinstance(data, str):
+                data = data.encode('utf-8')
             
-            if hasattr(result, 'url'):
-                logger.info(f"Upload successful. URL: {result.url}")
-                return result.url
+            # Create blob path
+            pathname = f"{self.container_name}/{blob_name}"
+            
+            # Create coroutine
+            put_coroutine = put(pathname, data, {'access': 'public'})
+            
+            # Await the coroutine
+            result = await asyncio.create_task(put_coroutine)
+            
+            if isinstance(result, dict) and 'url' in result:
+                logger.info(f"Upload successful. URL: {result['url']}")
+                return result['url']
             else:
                 logger.info(f"Upload successful. Result: {result}")
-                return result
+                return str(result)
 
         except Exception as e:
             logger.error(f"Detailed error uploading to Vercel Blob: {str(e)}")
@@ -34,7 +44,8 @@ class VercelBlobStorage:
         """Delete blob from Vercel Blob Storage"""
         try:
             pathname = f"{self.container_name}/{blob_name}"
-            await delete(pathname)
+            delete_coroutine = delete(pathname)
+            await asyncio.create_task(delete_coroutine)
             return True
         except Exception as e:
             logger.error(f"Error deleting from Vercel Blob: {e}")
