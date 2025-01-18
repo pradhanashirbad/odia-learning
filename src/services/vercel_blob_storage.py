@@ -13,17 +13,26 @@ class VercelBlobStorage:
     async def upload_blob(self, data, blob_name):
         """Upload data to Vercel Blob Storage"""
         try:
-            # Upload to Vercel Blob
-            blob = await put(blob_name, data, {'access': 'public'})
+            # Add more logging
+            logger.info(f"Attempting to upload blob: {blob_name}")
+            
+            # Upload to Vercel Blob with pathname
+            pathname = f"{self.container_name}/{blob_name}"
+            blob = await put(pathname, data, {'access': 'public'})
+            
+            logger.info(f"Upload successful. URL: {blob.url}")
             return blob.url
+
         except Exception as e:
-            logger.error(f"Error uploading to Vercel Blob: {e}")
-            return None
+            logger.error(f"Detailed error uploading to Vercel Blob: {str(e)}")
+            # Re-raise with more context
+            raise Exception(f"Vercel Blob upload failed: {str(e)}")
 
     async def delete_blob(self, blob_name):
         """Delete blob from Vercel Blob Storage"""
         try:
-            await delete(blob_name)
+            pathname = f"{self.container_name}/{blob_name}"
+            await delete(pathname)
             return True
         except Exception as e:
             logger.error(f"Error deleting from Vercel Blob: {e}")

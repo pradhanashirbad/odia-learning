@@ -200,14 +200,19 @@ def register_routes(app):
     @app.route('/save-session', methods=['POST'])
     def save_session():
         try:
+            # Add debug logging
+            logger.info("Starting save_session operation")
+            
             # Convert async function to sync
             storage_info = async_to_sync(data_storage.save_permanent_copy)()
+            
+            logger.info(f"Save operation completed: {storage_info}")
             return jsonify({
                 'success': True,
                 'storage_info': storage_info
             })
         except Exception as e:
-            logger.error(f"Error saving session: {str(e)}")
+            logger.error(f"Detailed error in save_session: {str(e)}")
             return jsonify({
                 'success': False,
                 'error': str(e)
