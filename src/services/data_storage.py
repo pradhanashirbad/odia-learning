@@ -8,17 +8,23 @@ logger = logging.getLogger(__name__)
 class DataStorageService:
     def __init__(self, blob_storage=None):
         self.blob_storage = blob_storage
-        # Use datafiles directory in root
-        self.base_dir = "datafiles"
+        # Use absolute path for datafiles directory
+        self.base_dir = os.path.join(os.getcwd(), "datafiles")
         self._ensure_directories()
 
     def _ensure_directories(self):
         """Ensure datafiles directory exists"""
         try:
-            os.makedirs(self.base_dir, exist_ok=True)
+            # Create directory if it doesn't exist
+            if not os.path.exists(self.base_dir):
+                os.makedirs(self.base_dir, exist_ok=True)
+                logger.info(f"Created directory: {self.base_dir}")
         except Exception as e:
             logger.error(f"Error creating directories: {e}")
-            # Don't raise the error, just log it
+            # Use /tmp as fallback for Vercel
+            self.base_dir = "/tmp"
+            os.makedirs(self.base_dir, exist_ok=True)
+            logger.info("Using /tmp directory as fallback")
 
     def _get_session_filepath(self, username):
         """Get full path to session file"""
@@ -30,6 +36,7 @@ class DataStorageService:
         """Save session data locally by appending new translations"""
         try:
             session_file = self._get_session_filepath(username)
+            logger.info(f"Saving session data to: {session_file}")
             
             # Read existing data if file exists
             existing_data = []
@@ -43,6 +50,9 @@ class DataStorageService:
             else:
                 existing_data = translations
 
+            # Create parent directory if it doesn't exist
+            os.makedirs(os.path.dirname(session_file), exist_ok=True)
+
             # Save combined data
             with open(session_file, 'w', encoding='utf-8') as f:
                 json.dump(existing_data, f, ensure_ascii=False, indent=2)
@@ -55,9 +65,11 @@ class DataStorageService:
         """Save permanent copy to blob storage"""
         try:
             session_file = self._get_session_filepath(username)
+            logger.info(f"Saving permanent copy from: {session_file}")
             
             # If file doesn't exist, create an empty one
             if not os.path.exists(session_file):
+                os.makedirs(os.path.dirname(session_file), exist_ok=True)
                 with open(session_file, 'w', encoding='utf-8') as f:
                     json.dump([], f, ensure_ascii=False, indent=2)
                 logger.info(f"Created new session file for user: {username}")
@@ -68,7 +80,7 @@ class DataStorageService:
 
             if self.blob_storage:
                 # Upload to blob storage with the same filename
-                blob_name = f"datafiles/{os.path.basename(session_file)}"
+                blob_name = f"{username}_session.json"  # Simplified blob name
                 
                 # Upload to blob storage (this will overwrite existing file)
                 blob_url = await self.blob_storage.upload_blob(
