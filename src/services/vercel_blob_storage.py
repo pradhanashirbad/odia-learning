@@ -17,7 +17,6 @@ class VercelBlobStorage:
             
             # Upload to Vercel Blob with pathname
             pathname = f"{self.container_name}/{blob_name}"
-            # Use put function directly
             result = await put(pathname, data, {'access': 'public'})
             
             if hasattr(result, 'url'):
@@ -35,7 +34,6 @@ class VercelBlobStorage:
         """Delete blob from Vercel Blob Storage"""
         try:
             pathname = f"{self.container_name}/{blob_name}"
-            # Use delete function directly
             await delete(pathname)
             return True
         except Exception as e:
