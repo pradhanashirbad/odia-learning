@@ -64,29 +64,67 @@ HTML_TEMPLATE = """
             background-color: #ccc;
             cursor: not-allowed;
         }
+        #appContent {
+            display: none;
+        }
+        #usernameForm {
+            text-align: center;
+            margin-top: 50px;
+        }
+        input[type="text"] {
+            padding: 10px;
+            font-size: 16px;
+            margin-right: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
     </style>
 </head>
 <body>
-    <h1>Odia Learning App</h1>
-    
-    <div class="controls">
-        <div class="radio-group">
-            <label>
-                <input type="radio" name="genType" value="words" checked> Words
-            </label>
-            <label>
-                <input type="radio" name="genType" value="phrases"> Phrases
-            </label>
-        </div>
-        <button onclick="generateContent()">Generate Content</button>
-        <button id="saveButton" onclick="saveSession()">Save Session</button>
+    <div id="usernameForm">
+        <h1>Welcome to Odia Learning App</h1>
+        <input type="text" id="username" placeholder="Enter your username" required>
+        <button onclick="submitUsername()">Start Learning</button>
     </div>
-    
-    <p id="loading" class="loading">Generating content...</p>
-    <div id="results"></div>
+
+    <div id="appContent">
+        <h1>Odia Learning App</h1>
+        <p>Welcome, <span id="userDisplay"></span>!</p>
+        
+        <div class="controls">
+            <div class="radio-group">
+                <label>
+                    <input type="radio" name="genType" value="words" checked> Words
+                </label>
+                <label>
+                    <input type="radio" name="genType" value="phrases"> Phrases
+                </label>
+            </div>
+            <button onclick="generateContent()">Generate Content</button>
+            <button id="saveButton" onclick="saveSession()">Save Session</button>
+        </div>
+        
+        <p id="loading" class="loading">Generating content...</p>
+        <div id="results"></div>
+    </div>
 
     <script>
         const baseUrl = window.location.origin;
+        let currentUsername = '';
+        
+        function submitUsername() {
+            const usernameInput = document.getElementById('username');
+            const username = usernameInput.value.trim();
+            
+            if (username) {
+                currentUsername = username;
+                document.getElementById('usernameForm').style.display = 'none';
+                document.getElementById('appContent').style.display = 'block';
+                document.getElementById('userDisplay').textContent = username;
+            } else {
+                alert('Please enter a username');
+            }
+        }
         
         function getSelectedType() {
             return document.querySelector('input[name="genType"]:checked').value;
@@ -106,7 +144,10 @@ HTML_TEMPLATE = """
                     'Accept': 'application/json',
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ type: getSelectedType() })
+                body: JSON.stringify({ 
+                    type: getSelectedType(),
+                    username: currentUsername
+                })
             })
             .then(response => response.json())
             .then(data => {
@@ -143,7 +184,8 @@ HTML_TEMPLATE = """
                 headers: {
                     'Accept': 'application/json',
                     'Content-Type': 'application/json'
-                }
+                },
+                body: JSON.stringify({ username: currentUsername })
             })
             .then(response => response.json())
             .then(data => {
@@ -181,10 +223,11 @@ def register_routes(app):
     def generate():
         try:
             gen_type = request.json.get('type', 'words')
+            username = request.json.get('username')
             new_translations = odia_phrase_service.process_phrases(gen_type=gen_type)
             
-            # Save locally
-            data_storage.save_session_data(new_translations)
+            # Save locally with username
+            data_storage.save_session_data(new_translations, username)
             
             return jsonify({
                 'success': True,
@@ -200,11 +243,11 @@ def register_routes(app):
     @app.route('/save-session', methods=['POST'])
     def save_session():
         try:
-            # Add debug logging
-            logger.info("Starting save_session operation")
+            username = request.json.get('username')
+            logger.info(f"Starting save_session operation for user: {username}")
             
             # Convert async function to sync
-            storage_info = async_to_sync(data_storage.save_permanent_copy)()
+            storage_info = async_to_sync(data_storage.save_permanent_copy)(username)
             
             logger.info(f"Save operation completed: {storage_info}")
             return jsonify({
