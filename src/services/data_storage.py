@@ -56,9 +56,13 @@ class DataStorageService:
         try:
             session_file = self._get_session_filepath(username)
             
+            # If file doesn't exist, create an empty one
             if not os.path.exists(session_file):
-                raise FileNotFoundError(f"No session file found for user: {username}")
+                with open(session_file, 'w', encoding='utf-8') as f:
+                    json.dump([], f, ensure_ascii=False, indent=2)
+                logger.info(f"Created new session file for user: {username}")
 
+            # Read the file (whether it was just created or existed)
             with open(session_file, 'r', encoding='utf-8') as f:
                 data = json.load(f)
 
