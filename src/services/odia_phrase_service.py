@@ -1,7 +1,7 @@
 from openai import OpenAI
 import json
 import logging
-from src.prompts.prompts_class import OdiaPhraseGeneration, WordGeneration, OdiaTranslation
+from src.prompts.prompts_class import OdiaPhraseGeneration, WordGeneration, OdiaTranslation, EnglishTranslation
 
 logger = logging.getLogger(__name__)
 
@@ -66,6 +66,34 @@ class OdiaPhraseService:
 
         except Exception as e:
             logger.error(f"Error translating to Odia: {str(e)}")
+            raise
+
+    def translate_to_english(self, odia_phrases):
+        """Translate Odia phrases to English"""
+        try:
+            completion = self.client.chat.completions.create(
+                messages=EnglishTranslation.get_messages(odia_phrases),
+                model=self.model,
+                **self.get_model_config()
+            )
+
+            translations = json.loads(completion.choices[0].message.content.strip())
+            if not isinstance(translations, list):
+                raise ValueError("Expected a JSON array of translations")
+            
+            # Combine Odia and English translations
+            combined = []
+            for i, odia_phrase in enumerate(odia_phrases):
+                if i < len(translations):
+                    combined.append({
+                        "english": translations[i].get("english", ""),
+                        "odia": odia_phrase
+                    })
+            
+            return combined
+
+        except Exception as e:
+            logger.error(f"Error translating to English: {str(e)}")
             raise
 
     def process_phrases(self, gen_type='words'):
