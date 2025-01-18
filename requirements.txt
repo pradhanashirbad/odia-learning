@@ -3,4 +3,4 @@ flask-cors>=4.0.0
 openai>=1.0.0
 python-dotenv>=1.0.0
 azure-cognitiveservices-speech>=1.31.0
-@vercel/blob 
+vercel-blob>=0.6.1 
