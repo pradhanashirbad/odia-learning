@@ -232,18 +232,19 @@ def register_routes(app):
             existing_words = data_storage.get_existing_words(username)
             logger.info(f"Found {len(existing_words)} existing words for user: {username}")
             
-            # Pass existing words to avoid duplicates
+            # Generate new translations
             new_translations = odia_phrase_service.process_phrases(
                 gen_type=gen_type, 
                 existing_words=existing_words
             )
             
-            # Save locally with username
-            data_storage.save_session_data(new_translations, username)
+            # Add to current session
+            all_translations = data_storage.add_translations(new_translations)
             
             return jsonify({
                 'success': True,
-                'translations': new_translations
+                'translations': new_translations,
+                'all_translations': all_translations
             })
         except Exception as e:
             logger.error(f"Error in generate: {str(e)}")
@@ -261,7 +262,10 @@ def register_routes(app):
                 
             logger.info(f"Starting save_session operation for user: {username}")
             
-            # Convert async function to sync
+            # Save locally first
+            data_storage.save_session_data(username)
+            
+            # Then save to blob storage
             storage_info = async_to_sync(data_storage.save_permanent_copy)(username)
             
             logger.info(f"Save operation completed: {storage_info}")
@@ -274,7 +278,7 @@ def register_routes(app):
             return jsonify({
                 'success': False,
                 'error': str(e)
-            }), 500 
+            }), 500
 
     @app.route('/load-session', methods=['POST'])
     def load_session():

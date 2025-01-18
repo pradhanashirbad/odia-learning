@@ -10,7 +10,7 @@ class DataStorageService:
         self.blob_storage = blob_storage
         self.base_dir = os.path.join(os.getcwd(), "datafiles")
         self._ensure_directories()
-        self.current_translations = None  # Store current translations in memory
+        self.current_translations = []  # Store current session translations
 
     def _ensure_directories(self):
         """Ensure datafiles directory exists"""
@@ -36,22 +36,26 @@ class DataStorageService:
         user_dir = self._get_user_dir(username)
         return os.path.join(user_dir, f"session_{timestamp}.json")
 
-    def save_session_data(self, translations, username=None):
-        """Save session data to a new timestamped file"""
+    def add_translations(self, new_translations):
+        """Add new translations to current session"""
+        self.current_translations.extend(new_translations)
+        return self.current_translations
+
+    def save_session_data(self, username=None):
+        """Save accumulated session data to a new timestamped file"""
         try:
-            # Create user directory if it doesn't exist
-            user_dir = self._get_user_dir(username)
-            os.makedirs(user_dir, exist_ok=True)
-            
+            if not self.current_translations:
+                raise ValueError("No translations to save")
+
             session_file = self._get_session_filepath(username)
             logger.info(f"Saving session data to: {session_file}")
-
-            # Save data with pretty formatting
-            with open(session_file, 'w', encoding='utf-8') as f:
-                json.dump(translations, f, ensure_ascii=False, indent=4)
             
-            # Store current translations in memory
-            self.current_translations = translations
+            # Create parent directory if it doesn't exist
+            os.makedirs(os.path.dirname(session_file), exist_ok=True)
+
+            # Save all accumulated translations with pretty formatting
+            with open(session_file, 'w', encoding='utf-8') as f:
+                json.dump(self.current_translations, f, ensure_ascii=False, indent=4)
             return {"local_path": session_file}
         except Exception as e:
             logger.error(f"Error saving session data: {e}")
@@ -65,8 +69,7 @@ class DataStorageService:
 
             if self.blob_storage:
                 # Use timestamped filename for blob storage
-                timestamp = datetime.now().strftime("%Y%m%d%H%M%S")  # Removed underscore
-                # Include username folder in blob path
+                timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
                 blob_name = f"{username}/session_{timestamp}.json"
                 
                 # Upload to blob storage with pretty formatting
@@ -78,6 +81,9 @@ class DataStorageService:
                 if not blob_url:
                     raise Exception("Failed to upload to blob storage")
 
+                # Clear current translations after successful save
+                self.current_translations = []
+                
                 return {
                     "blob_url": blob_url,
                     "filename": blob_name
