@@ -1,7 +1,7 @@
 from openai import OpenAI
 import json
 import logging
-from src.prompts.prompts_class import OdiaPhraseGeneration, EnglishTranslation
+from src.prompts.prompts_class import OdiaPhraseGeneration, WordGeneration, OdiaTranslation
 
 logger = logging.getLogger(__name__)
 
@@ -19,34 +19,41 @@ class OdiaPhraseService:
         """Check if text contains Odia characters"""
         return any('\u0B00' <= char <= '\u0B7F' for char in text)
 
-    def generate_odia_phrases(self):
-        """Generate Odia phrases"""
+    def generate_content(self, gen_type='words'):
+        """Generate words or phrases"""
         try:
+            if gen_type == 'words':
+                messages = WordGeneration.get_messages()
+            else:
+                messages = OdiaPhraseGeneration.get_messages()
+
             completion = self.client.chat.completions.create(
-                messages=OdiaPhraseGeneration.get_messages(),
+                messages=messages,
                 model=self.model,
                 **self.get_model_config()
             )
 
-            odia_phrases = json.loads(completion.choices[0].message.content.strip())
-            if not isinstance(odia_phrases, list):
-                raise ValueError("Expected a JSON array of Odia phrases")
+            content = json.loads(completion.choices[0].message.content.strip())
+            if not isinstance(content, list):
+                raise ValueError(f"Expected a JSON array of {gen_type}")
             
-            valid_phrases = [phrase for phrase in odia_phrases if self.validate_odia_text(phrase)]
-            if not valid_phrases:
-                raise ValueError("No valid Odia phrases generated")
-            
-            return valid_phrases
+            if gen_type == 'words':
+                return content
+            else:
+                valid_phrases = [phrase for phrase in content if self.validate_odia_text(phrase)]
+                if not valid_phrases:
+                    raise ValueError("No valid Odia phrases generated")
+                return valid_phrases
 
         except Exception as e:
-            logger.error(f"Error generating Odia phrases: {str(e)}")
+            logger.error(f"Error generating {gen_type}: {str(e)}")
             raise
 
-    def translate_to_english(self, odia_phrases):
-        """Translate Odia phrases to English"""
+    def translate_to_odia(self, words):
+        """Translate English words to Odia"""
         try:
             completion = self.client.chat.completions.create(
-                messages=EnglishTranslation.get_messages(odia_phrases),
+                messages=OdiaTranslation.get_messages(words),
                 model=self.model,
                 **self.get_model_config()
             )
@@ -58,32 +65,23 @@ class OdiaPhraseService:
             return translations
 
         except Exception as e:
-            logger.error(f"Error translating to English: {str(e)}")
+            logger.error(f"Error translating to Odia: {str(e)}")
             raise
 
-    def process_phrases(self):
-        """Generate Odia phrases with English translations"""
+    def process_phrases(self, gen_type='words'):
+        """Generate and process content"""
         try:
-            # Step 1: Generate Odia phrases
-            odia_phrases = self.generate_odia_phrases()
-            
-            # Step 2: Get English translations
-            translations = self.translate_to_english(odia_phrases)
-
-            # Step 3: Combine information
-            combined = []
-            for i, odia_phrase in enumerate(odia_phrases):
-                if i < len(translations):
-                    combined.append({
-                        "english": translations[i].get("english", ""),
-                        "odia": odia_phrase
-                    })
-
-            if not combined:
-                raise ValueError("No complete entries were generated")
-
-            return combined
+            if gen_type == 'words':
+                # Generate English words and translate to Odia
+                words = self.generate_content('words')
+                translations = self.translate_to_odia(words)
+                return translations
+            else:
+                # Generate Odia phrases and translate to English
+                odia_phrases = self.generate_content('phrases')
+                translations = self.translate_to_english(odia_phrases)
+                return translations
 
         except Exception as e:
-            logger.error(f"Error in phrase processing: {str(e)}")
+            logger.error(f"Error in content processing: {str(e)}")
             raise 
