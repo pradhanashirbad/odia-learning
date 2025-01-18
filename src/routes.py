@@ -4,6 +4,7 @@ from src.config.settings import Settings
 from openai import OpenAI
 import logging
 from src.services.data_storage import DataStorageService
+from src.services.blob_storage import BlobStorageService
 
 logger = logging.getLogger(__name__)
 
@@ -188,8 +189,9 @@ HTML_TEMPLATE = """
 def register_routes(app):
     settings = Settings()
     client = OpenAI()
+    blob_storage = BlobStorageService(settings.config)
+    data_storage = DataStorageService(blob_storage)
     odia_phrase_service = OdiaPhraseService(client, settings.config, settings.model_configs)
-    data_storage = DataStorageService()
 
     @app.route('/')
     def index():
@@ -201,8 +203,8 @@ def register_routes(app):
             gen_type = request.json.get('type', 'words')
             new_translations = odia_phrase_service.process_phrases(gen_type=gen_type)
             
-            # Save locally first, blob storage happens later
-            storage_info = data_storage.save_session_data(new_translations)
+            # Just save locally
+            data_storage.save_session_data(new_translations)
             
             return jsonify({
                 'success': True,
