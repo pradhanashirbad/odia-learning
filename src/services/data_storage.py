@@ -23,10 +23,22 @@ class DataStorageService:
             # Don't raise the error, just log it
 
     def save_session_data(self, translations):
-        """Save session data locally"""
+        """Save session data locally by appending new translations"""
         try:
+            existing_data = []
+            if os.path.exists(self.session_file):
+                with open(self.session_file, 'r', encoding='utf-8') as f:
+                    existing_data = json.load(f)
+            
+            # Append new translations
+            if isinstance(existing_data, list):
+                existing_data.extend(translations)
+            else:
+                existing_data = translations
+
+            # Save combined data
             with open(self.session_file, 'w', encoding='utf-8') as f:
-                json.dump(translations, f, ensure_ascii=False, indent=2)
+                json.dump(existing_data, f, ensure_ascii=False, indent=2)
             return {"local_path": self.session_file}
         except Exception as e:
             logger.error(f"Error saving session data: {e}")

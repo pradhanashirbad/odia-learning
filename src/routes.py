@@ -48,23 +48,40 @@ HTML_TEMPLATE = """
         .radio-group {
             margin: 10px 0;
         }
+        .controls {
+            margin: 20px 0;
+        }
+        #saveButton {
+            background-color: #2196F3;
+            margin-left: 10px;
+            display: none;
+        }
+        #saveButton:hover {
+            background-color: #1976D2;
+        }
+        #saveButton:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
     </style>
 </head>
 <body>
     <h1>Odia Learning App</h1>
     
-    <div class="radio-group">
-        <label>
-            <input type="radio" name="genType" value="words" checked> Words
-        </label>
-        <label>
-            <input type="radio" name="genType" value="phrases"> Phrases
-        </label>
+    <div class="controls">
+        <div class="radio-group">
+            <label>
+                <input type="radio" name="genType" value="words" checked> Words
+            </label>
+            <label>
+                <input type="radio" name="genType" value="phrases"> Phrases
+            </label>
+        </div>
+        <button onclick="generateContent()">Generate Content</button>
+        <button id="saveButton" onclick="saveSession()">Save Session</button>
     </div>
     
-    <button onclick="generateContent()">Generate Content</button>
     <p id="loading" class="loading">Generating content...</p>
-    
     <div id="results"></div>
 
     <script>
@@ -77,6 +94,7 @@ HTML_TEMPLATE = """
         function generateContent() {
             const loadingElement = document.getElementById('loading');
             const resultsElement = document.getElementById('results');
+            const saveButton = document.getElementById('saveButton');
             
             loadingElement.style.display = 'block';
             resultsElement.innerHTML = '';
@@ -103,6 +121,7 @@ HTML_TEMPLATE = """
                         `;
                         resultsElement.appendChild(card);
                     });
+                    saveButton.style.display = 'inline-block';
                 } else {
                     resultsElement.innerHTML = `<p style="color: red;">Error: ${data.error}</p>`;
                 }
@@ -110,6 +129,35 @@ HTML_TEMPLATE = """
             .catch(error => {
                 loadingElement.style.display = 'none';
                 resultsElement.innerHTML = `<p style="color: red;">Error: ${error}</p>`;
+            });
+        }
+
+        function saveSession() {
+            const saveButton = document.getElementById('saveButton');
+            saveButton.disabled = true;
+            saveButton.textContent = 'Saving...';
+            
+            fetch(`${baseUrl}/save-session`, {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Session saved successfully!');
+                } else {
+                    alert(`Error saving session: ${data.error}`);
+                }
+            })
+            .catch(error => {
+                alert(`Error saving session: ${error}`);
+            })
+            .finally(() => {
+                saveButton.disabled = false;
+                saveButton.textContent = 'Save Session';
             });
         }
     </script>
