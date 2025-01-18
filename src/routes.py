@@ -5,6 +5,7 @@ from openai import OpenAI
 import logging
 from src.services.vercel_blob_storage import VercelBlobStorage
 from src.services.data_storage import DataStorageService
+from asgiref.sync import async_to_sync
 
 logger = logging.getLogger(__name__)
 
@@ -181,6 +182,10 @@ def register_routes(app):
         try:
             gen_type = request.json.get('type', 'words')
             new_translations = odia_phrase_service.process_phrases(gen_type=gen_type)
+            
+            # Save locally
+            data_storage.save_session_data(new_translations)
+            
             return jsonify({
                 'success': True,
                 'translations': new_translations
@@ -190,12 +195,13 @@ def register_routes(app):
             return jsonify({
                 'success': False,
                 'error': str(e)
-            }), 500 
+            }), 500
 
     @app.route('/save-session', methods=['POST'])
-    async def save_session():
+    def save_session():
         try:
-            storage_info = await data_storage.save_permanent_copy()
+            # Convert async function to sync
+            storage_info = async_to_sync(data_storage.save_permanent_copy)()
             return jsonify({
                 'success': True,
                 'storage_info': storage_info
