@@ -8,27 +8,33 @@ logger = logging.getLogger(__name__)
 class DataStorageService:
     def __init__(self, blob_storage=None):
         self.blob_storage = blob_storage
-        # Use /tmp directory for Vercel
-        self.base_dir = "/tmp"
-        self.words_dir = os.path.join(self.base_dir, "words")
-        self.session_file = os.path.join(self.words_dir, "session.json")
+        # Use datafiles directory in root
+        self.base_dir = "datafiles"
         self._ensure_directories()
+        self.session_file = None
 
     def _ensure_directories(self):
-        """Ensure necessary directories exist"""
+        """Ensure datafiles directory exists"""
         try:
-            os.makedirs(self.words_dir, exist_ok=True)
+            os.makedirs(self.base_dir, exist_ok=True)
         except Exception as e:
             logger.error(f"Error creating directories: {e}")
             # Don't raise the error, just log it
 
+    def _get_session_filename(self, username):
+        """Get session filename for user"""
+        return f"{username}_session.json" if username else "session.json"
+
     def save_session_data(self, translations, username=None):
         """Save session data locally by appending new translations"""
         try:
-            # Use username in filename if provided
-            if username:
-                self.session_file = os.path.join(self.words_dir, f"{username}_session.json")
+            if not username:
+                raise ValueError("Username is required")
+
+            # Set session file path
+            self.session_file = os.path.join(self.base_dir, self._get_session_filename(username))
             
+            # Read existing data if file exists
             existing_data = []
             if os.path.exists(self.session_file):
                 with open(self.session_file, 'r', encoding='utf-8') as f:
@@ -51,41 +57,35 @@ class DataStorageService:
     async def save_permanent_copy(self, username=None):
         """Save permanent copy to blob storage"""
         try:
+            if not username:
+                raise ValueError("Username is required")
+
+            # Use the same session file
+            self.session_file = os.path.join(self.base_dir, self._get_session_filename(username))
+            
             if not os.path.exists(self.session_file):
                 raise FileNotFoundError("No active session to save")
 
             with open(self.session_file, 'r', encoding='utf-8') as f:
                 data = json.load(f)
 
-            # Generate filename with username and timestamp
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"{username}_{timestamp}.json" if username else f"session_{timestamp}.json"
-            blob_name = f"data_files/{filename}"  # Use data_files folder
-
             if self.blob_storage:
-                # Check if file exists and merge data if it does
-                try:
-                    existing_data = []
-                    # Logic to fetch and merge existing data would go here
-                    # For now, we'll just overwrite
-                    
-                    # Upload to blob storage
-                    blob_url = await self.blob_storage.upload_blob(
-                        json.dumps(data, ensure_ascii=False).encode('utf-8'),
-                        blob_name
-                    )
+                # Upload to blob storage with the same filename
+                blob_name = f"datafiles/{self._get_session_filename(username)}"
+                
+                # Upload to blob storage (this will overwrite existing file)
+                blob_url = await self.blob_storage.upload_blob(
+                    json.dumps(data, ensure_ascii=False).encode('utf-8'),
+                    blob_name
+                )
 
-                    if not blob_url:
-                        raise Exception("Failed to upload to blob storage")
+                if not blob_url:
+                    raise Exception("Failed to upload to blob storage")
 
-                    return {
-                        "blob_url": blob_url,
-                        "filename": blob_name
-                    }
-                except Exception as e:
-                    logger.error(f"Error handling existing file: {e}")
-                    raise
-
+                return {
+                    "blob_url": blob_url,
+                    "filename": blob_name
+                }
             else:
                 logger.warning("No blob storage configured")
                 return {"local_path": self.session_file}
@@ -94,13 +94,18 @@ class DataStorageService:
             logger.error(f"Error saving permanent copy: {e}")
             raise
 
-    def get_existing_words(self):
-        """Get existing words from local session"""
+    def get_existing_words(self, username=None):
+        """Get existing words from user's session"""
         try:
-            if os.path.exists(self.session_file):
-                with open(self.session_file, 'r', encoding='utf-8') as f:
+            if not username:
+                return []
+
+            file_path = os.path.join(self.base_dir, self._get_session_filename(username))
+            if os.path.exists(file_path):
+                with open(file_path, 'r', encoding='utf-8') as f:
                     data = json.load(f)
                 return [item.get('english', '') for item in data if 'english' in item]
             return []
-        except Exception:
+        except Exception as e:
+            logger.error(f"Error getting existing words: {e}")
             return [] 

@@ -224,6 +224,12 @@ def register_routes(app):
         try:
             gen_type = request.json.get('type', 'words')
             username = request.json.get('username')
+            
+            if not username:
+                raise ValueError("Username is required")
+                
+            # Get existing words for duplicate checking
+            existing_words = data_storage.get_existing_words(username)
             new_translations = odia_phrase_service.process_phrases(gen_type=gen_type)
             
             # Save locally with username
