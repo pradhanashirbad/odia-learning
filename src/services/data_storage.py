@@ -3,7 +3,6 @@ import json
 import time
 from datetime import datetime
 import logging
-import shutil
 
 logger = logging.getLogger(__name__)
 
@@ -19,99 +18,57 @@ class DataStorageService:
         """Ensure necessary directories exist"""
         os.makedirs(self.words_dir, exist_ok=True)
 
-    def get_existing_words(self):
-        """
-        Get existing English words from the current session
-        """
+    def save_session_data(self, translations):
+        """Save session data without immediate blob upload"""
         try:
-            if os.path.exists(self.session_file):
-                with open(self.session_file, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-                    return [t['english'] for t in data.get('translations', [])]
-            return []
-        except Exception as e:
-            logger.error(f"Error reading existing words: {e}")
-            return []
-
-    def save_session_data(self, translations, save_to_blob=True):
-        """
-        Append new translations to session.json
-        Returns the paths/urls where the data was saved
-        """
-        try:
-            # Load existing translations if any
-            existing_translations = []
-            if os.path.exists(self.session_file):
-                with open(self.session_file, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-                    existing_translations = data.get('translations', [])
-
-            # Combine existing and new translations
-            all_translations = existing_translations + translations
-
-            # Create session data with timestamp
-            session_data = {
-                "timestamp": datetime.utcnow().isoformat(),
-                "translations": all_translations
-            }
-
-            # Save updated session file
             with open(self.session_file, 'w', encoding='utf-8') as f:
-                json.dump(session_data, f, ensure_ascii=False, indent=2)
-            
-            logger.info(f"Session data saved to: {self.session_file}")
-            
-            blob_url = None
-            if save_to_blob:
-                # Save to blob storage
-                blob_name = "words/session.json"
-                blob_url = self.blob_storage.upload_file(self.session_file, blob_name)
-                logger.info(f"Session data saved to blob storage: {blob_url}")
-
-            return {
-                "local_path": self.session_file,
-                "blob_url": blob_url
-            }
-
+                json.dump(translations, f, ensure_ascii=False, indent=2)
+            return {"local_path": self.session_file}
         except Exception as e:
             logger.error(f"Error saving session data: {e}")
             raise
 
     def save_permanent_copy(self):
-        """
-        Save a permanent copy of the current session file with timestamp
-        """
+        """Save permanent copy to blob storage asynchronously"""
         try:
             if not os.path.exists(self.session_file):
-                raise FileNotFoundError("No active session file found")
+                raise FileNotFoundError("No active session to save")
 
-            # Generate filename with datetime
+            with open(self.session_file, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+
+            # Generate unique filename
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            save_filename = f"saved_{timestamp}.json"
-            save_path = os.path.join(self.words_dir, save_filename)
+            blob_name = f"session_{timestamp}.json"
 
-            # Copy session file to saved file
-            shutil.copy2(self.session_file, save_path)
-            
-            # Upload to blob if session was in blob
-            blob_url = None
-            try:
-                blob_name = f"words/{save_filename}"
-                blob_url = self.blob_storage.upload_file(save_path, blob_name)
-                logger.info(f"Saved session data to blob storage: {blob_url}")
-            except Exception as e:
-                logger.warning(f"Failed to save to blob storage: {e}")
+            # Upload to blob storage
+            blob_url = self.blob_storage.upload_blob(
+                json.dumps(data, ensure_ascii=False).encode('utf-8'),
+                blob_name
+            )
 
-            logger.info(f"Session saved permanently to: {save_path}")
-            
+            if not blob_url:
+                raise Exception("Failed to upload to blob storage")
+
             return {
-                "local_path": save_path,
-                "blob_url": blob_url
+                "blob_url": blob_url,
+                "filename": blob_name
             }
 
         except Exception as e:
             logger.error(f"Error saving permanent copy: {e}")
             raise
+
+    def get_existing_words(self):
+        """Get existing words from local session"""
+        try:
+            if os.path.exists(self.session_file):
+                with open(self.session_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                return [item.get('english', '') for item in data if 'english' in item]
+            return []
+        except Exception:
+            return []
 
     def list_saved_files(self):
         """

@@ -3,6 +3,7 @@ from src.services.odia_phrase_service import OdiaPhraseService
 from src.config.settings import Settings
 from openai import OpenAI
 import logging
+from src.services.data_storage import DataStorageService
 
 logger = logging.getLogger(__name__)
 
@@ -188,6 +189,7 @@ def register_routes(app):
     settings = Settings()
     client = OpenAI()
     odia_phrase_service = OdiaPhraseService(client, settings.config, settings.model_configs)
+    data_storage = DataStorageService()
 
     @app.route('/')
     def index():
@@ -198,12 +200,31 @@ def register_routes(app):
         try:
             gen_type = request.json.get('type', 'words')
             new_translations = odia_phrase_service.process_phrases(gen_type=gen_type)
+            
+            # Save locally first, blob storage happens later
+            storage_info = data_storage.save_session_data(new_translations)
+            
             return jsonify({
                 'success': True,
                 'translations': new_translations
             })
         except Exception as e:
             logger.error(f"Error in generate: {str(e)}")
+            return jsonify({
+                'success': False,
+                'error': str(e)
+            }), 500
+
+    @app.route('/save-session', methods=['POST'])
+    def save_session():
+        try:
+            storage_info = data_storage.save_permanent_copy()
+            return jsonify({
+                'success': True,
+                'storage_info': storage_info
+            })
+        except Exception as e:
+            logger.error(f"Error saving session: {str(e)}")
             return jsonify({
                 'success': False,
                 'error': str(e)
