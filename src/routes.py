@@ -29,6 +29,13 @@ HTML_TEMPLATE = """
             padding: 15px;
             margin: 10px 0;
             border-radius: 5px;
+            background-color: white;
+        }
+        .translation-card .romanized {
+            color: #666;
+            font-style: italic;
+            margin-top: 5px;
+            font-size: 0.9em;
         }
         .loading {
             display: none;
@@ -204,6 +211,7 @@ HTML_TEMPLATE = """
                 card.innerHTML = `
                     <h3>English: ${translation.english}</h3>
                     <p>Odia: ${translation.odia}</p>
+                    <p class="romanized">Romanized: ${translation.romanized_odia}</p>
                 `;
                 resultsElement.appendChild(card);
             });
