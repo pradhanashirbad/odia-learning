@@ -10,8 +10,9 @@ class DataStorageService:
         self.blob_storage = blob_storage
         self.base_dir = os.path.join(os.getcwd(), "datafiles")
         self._ensure_directories()
-        self.display_current_session = []  # For displaying current session only
-        self.existing_words = []  # For prompt context (previous + current)
+        self.previous_words = []  # Words from previous sessions
+        self.generated_words = []  # Words from current session for display
+        self.total_words = []     # Combined words for prompt context
 
     def _ensure_directories(self):
         """Ensure datafiles directory exists"""
@@ -43,61 +44,65 @@ class DataStorageService:
         return [item.get('odia', '') for item in translations if 'odia' in item]
 
     def get_existing_words(self):
-        """Get all existing words for prompt context"""
-        return list(self.existing_words)
+        """Get all words for prompt context"""
+        return list(self.total_words)
 
     def start_session(self, username):
-        """Start new session and load existing words for context"""
+        """Start new session and load previous words"""
         try:
             if not username:
                 raise ValueError("Username is required")
             
             logger.info(f"Starting new session for user: {username}")
             
-            # Clear current session display
-            self.display_current_session = []
+            # Clear current session
+            self.generated_words = []
             
-            # Load previous words for prompt context
+            # Load previous words from all sessions
             previous_translations = self.get_all_user_translations(username)
-            self.existing_words = [item.get('odia', '') for item in previous_translations if 'odia' in item]
-            logger.info(f"Loaded {len(self.existing_words)} previous words for prompt context")
+            self.previous_words = [item.get('odia', '') for item in previous_translations if 'odia' in item]
             
+            # Initialize total words with previous words
+            self.total_words = list(self.previous_words)
+            
+            logger.info(f"Loaded {len(self.previous_words)} previous words for context")
             return []  # Return empty list for fresh session display
             
         except Exception as e:
             logger.error(f"Error starting session: {e}")
-            self.display_current_session = []
-            self.existing_words = []
+            self.previous_words = []
+            self.generated_words = []
+            self.total_words = []
             return []
 
     def add_to_session(self, new_translations):
-        """Add new translations to current session display and context"""
-        # Add to current session display
-        self.display_current_session.extend(new_translations)
+        """Add new translations to current session"""
+        # Add to generated words for display
+        self.generated_words.extend(new_translations)
         
-        # Add new Odia words to existing words for next prompt
-        new_odia_words = [t.get('odia', '') for t in new_translations if 'odia' in t]
-        self.existing_words.extend(new_odia_words)
+        # Add new Odia words to total words for prompt context
+        new_odia = [t.get('odia', '') for t in new_translations if 'odia' in t]
+        self.total_words.extend(new_odia)
         
-        logger.info(f"Added {len(new_translations)} translations to display and {len(new_odia_words)} words to context")
+        logger.info(f"Added {len(new_translations)} new translations. Total context words: {len(self.total_words)}")
         
-        # Return current session translations for display
-        return list(self.display_current_session)
+        # Return only current session translations for display
+        return list(self.generated_words)
 
     def save_session_data(self, username=None):
         """Save current session data"""
         try:
             if not username:
                 raise ValueError("Username is required")
-            if not self.display_current_session:
+            if not self.generated_words:
                 raise ValueError("No translations to save")
 
             session_file = self._get_session_filepath(username)
             logger.info(f"Saving session data to: {session_file}")
 
-            # Save only current session data
+            # Save only current session generated words
             with open(session_file, 'w', encoding='utf-8') as f:
-                json.dump(self.display_current_session, f, ensure_ascii=False, indent=4)
+                json.dump(self.generated_words, f, ensure_ascii=False, indent=4)
 
             return {"local_path": session_file}
         except Exception as e:
@@ -106,8 +111,8 @@ class DataStorageService:
 
     def clear_session(self):
         """Clear current session"""
-        self.display_current_session = []
-        # Keep existing_words for context until completely new session
+        self.generated_words = []  # Clear only generated words
+        # Keep previous_words and total_words until completely new session
 
     def get_all_user_translations(self, username):
         """Get all translations from user's previous sessions"""
@@ -135,7 +140,7 @@ class DataStorageService:
     async def save_permanent_copy(self, username=None):
         """Save permanent copy to blob storage"""
         try:
-            if not self.display_current_session:
+            if not self.generated_words:
                 raise ValueError("No translations available to save")
 
             if self.blob_storage:
@@ -145,7 +150,7 @@ class DataStorageService:
                 
                 # Upload to blob storage with pretty formatting
                 blob_url = await self.blob_storage.upload_blob(
-                    json.dumps(self.display_current_session, ensure_ascii=False, indent=4),
+                    json.dumps(self.generated_words, ensure_ascii=False, indent=4),
                     blob_name
                 )
 
