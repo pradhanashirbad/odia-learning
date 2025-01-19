@@ -127,33 +127,76 @@ HTML_TEMPLATE = """
         <button onclick="generateContent()">Generate Content</button>
         <button id="saveButton" onclick="saveAndExit()" style="display: none;">Save Session & Exit</button>
         
-        <p id="loading" class="loading">Generating content...</p>
+        <p id="loading" style="display: none;">Generating content...</p>
         <div id="results"></div>
     </div>
 
     <script>
         let currentUsername = '';
-        let sessionTranslations = [];
+        let allTranslations = [];
         let currentPage = 1;
         const itemsPerPage = 5;
-        
+        const baseUrl = window.location.origin;
+
+        function submitUsername() {
+            const username = document.getElementById('username').value.trim();
+            if (!username) {
+                alert('Please enter a username');
+                return;
+            }
+            
+            currentUsername = username;
+            
+            // Load existing translations
+            fetch(`${baseUrl}/load-session`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ username: username })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Show main app content
+                    document.getElementById('usernameForm').style.display = 'none';
+                    document.getElementById('appContent').style.display = 'block';
+                    document.getElementById('userDisplay').textContent = username;
+                    
+                    // Display existing translations if any
+                    if (data.translations && data.translations.length > 0) {
+                        allTranslations = data.translations;
+                        displayTranslations(allTranslations);
+                        document.getElementById('saveButton').style.display = 'inline-block';
+                    }
+                } else {
+                    alert(data.error || 'Error loading session');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error loading session');
+            });
+        }
+
         function displayTranslations(translations) {
             const resultsElement = document.getElementById('results');
             resultsElement.innerHTML = '';
             
             if (!translations.length) {
-                resultsElement.innerHTML = '<p>No translations yet.</p>';
+                resultsElement.innerHTML = '<p>No translations yet. Click "Generate Content" to start.</p>';
                 return;
             }
-            
+
+            // Calculate pagination
             const totalPages = Math.ceil(translations.length / itemsPerPage);
             const startIndex = (currentPage - 1) * itemsPerPage;
             const endIndex = Math.min(startIndex + itemsPerPage, translations.length);
             const pageTranslations = translations.slice(startIndex, endIndex);
-            
-            // Add pagination at top
+
+            // Add pagination controls at top
             resultsElement.appendChild(createPaginationControls(totalPages));
-            
+
             // Add translations
             pageTranslations.forEach(translation => {
                 const card = document.createElement('div');
@@ -164,11 +207,11 @@ HTML_TEMPLATE = """
                 `;
                 resultsElement.appendChild(card);
             });
-            
-            // Add pagination at bottom
+
+            // Add pagination controls at bottom
             resultsElement.appendChild(createPaginationControls(totalPages));
         }
-        
+
         function createPaginationControls(totalPages) {
             const nav = document.createElement('div');
             nav.className = 'pagination';
@@ -183,47 +226,14 @@ HTML_TEMPLATE = """
             `;
             return nav;
         }
-        
+
         function changePage(newPage) {
-            if (newPage >= 1 && newPage <= Math.ceil(sessionTranslations.length / itemsPerPage)) {
+            if (newPage >= 1 && newPage <= Math.ceil(allTranslations.length / itemsPerPage)) {
                 currentPage = newPage;
-                displayTranslations(sessionTranslations);
+                displayTranslations(allTranslations);
             }
         }
-        
-        function submitUsername() {
-            const username = document.getElementById('username').value.trim();
-            if (!username) {
-                alert('Please enter a username');
-                return;
-            }
-            
-            currentUsername = username;
-            
-            fetch(`${baseUrl}/start-session`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ username })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    sessionTranslations = data.translations;
-                    currentPage = 1;
-                    document.getElementById('usernameForm').style.display = 'none';
-                    document.getElementById('appContent').style.display = 'block';
-                    document.getElementById('userDisplay').textContent = username;
-                    displayTranslations(sessionTranslations);
-                    if (sessionTranslations.length > 0) {
-                        document.getElementById('saveButton').style.display = 'inline-block';
-                    }
-                }
-            })
-            .catch(error => console.error('Error:', error));
-        }
-        
+
         function generateContent() {
             const loadingElement = document.getElementById('loading');
             loadingElement.style.display = 'block';
@@ -242,21 +252,25 @@ HTML_TEMPLATE = """
             .then(data => {
                 loadingElement.style.display = 'none';
                 if (data.success) {
-                    sessionTranslations = data.translations;
-                    // Go to the last page to show new content
-                    currentPage = Math.ceil(sessionTranslations.length / itemsPerPage);
-                    displayTranslations(sessionTranslations);
+                    // Add new translations to existing ones
+                    allTranslations = allTranslations.concat(data.translations);
+                    // Go to last page to show new content
+                    currentPage = Math.ceil(allTranslations.length / itemsPerPage);
+                    displayTranslations(allTranslations);
                     document.getElementById('saveButton').style.display = 'inline-block';
+                } else {
+                    alert(data.error || 'Error generating content');
                 }
             })
             .catch(error => {
                 loadingElement.style.display = 'none';
                 console.error('Error:', error);
+                alert('Error generating content');
             });
         }
-        
+
         function saveAndExit() {
-            fetch(`${baseUrl}/save-and-exit`, {
+            fetch(`${baseUrl}/save-session`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -266,18 +280,21 @@ HTML_TEMPLATE = """
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    // Reset session state
-                    sessionTranslations = [];
-                    currentPage = 1;
+                    // Reset and go back to username form
                     currentUsername = '';
-                    
-                    // Show username form and hide app content
+                    allTranslations = [];
+                    currentPage = 1;
                     document.getElementById('usernameForm').style.display = 'block';
                     document.getElementById('appContent').style.display = 'none';
                     document.getElementById('username').value = '';
+                } else {
+                    alert(data.error || 'Error saving session');
                 }
             })
-            .catch(error => console.error('Error:', error));
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error saving session');
+            });
         }
     </script>
 </body>
