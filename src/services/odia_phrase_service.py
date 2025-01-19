@@ -1,7 +1,7 @@
 from openai import OpenAI
 import json
 import logging
-from src.prompts.prompts_class import OdiaPhraseGeneration, WordGeneration, OdiaTranslation, EnglishTranslation
+from src.prompts.prompts_class import WordGeneration, OdiaTranslation, EnglishTranslation
 
 logger = logging.getLogger(__name__)
 
@@ -22,10 +22,11 @@ class OdiaPhraseService:
     def generate_content(self, gen_type='words', existing_words=None):
         """Generate words or phrases"""
         try:
+            # Use appropriate prompt class based on type
             if gen_type == 'words':
-                messages = WordGeneration.get_messages(existing_words)
+                messages = WordGeneration.get_messages(existing_words, gen_type)
             else:
-                messages = OdiaPhraseGeneration.get_messages(existing_words)
+                messages = PhraseGeneration.get_messages(existing_words)
 
             completion = self.client.chat.completions.create(
                 messages=messages,
