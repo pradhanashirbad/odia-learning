@@ -78,111 +78,187 @@ HTML_TEMPLATE = """
             border: 1px solid #ddd;
             border-radius: 5px;
         }
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 20px 0;
+            gap: 10px;
+        }
+        
+        .pagination button {
+            padding: 5px 15px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        
+        .pagination button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        
+        .pagination span {
+            font-size: 14px;
+            color: #666;
+        }
     </style>
 </head>
 <body>
+    <h1>Odia Learning App</h1>
+    
     <div id="usernameForm">
-        <h1>Welcome to Odia Learning App</h1>
-        <input type="text" id="username" placeholder="Enter your username" required>
-        <button onclick="submitUsername()">Start Learning</button>
+        <h2>Enter Your Name</h2>
+        <input type="text" id="username" placeholder="Your name">
+        <button onclick="submitUsername()">Start Session</button>
     </div>
-
-    <div id="appContent">
-        <h1>Odia Learning App</h1>
+    
+    <div id="appContent" style="display: none;">
         <p>Welcome, <span id="userDisplay"></span>!</p>
-        
-        <div class="controls">
-            <div class="radio-group">
-                <label>
-                    <input type="radio" name="genType" value="words" checked> Words
-                </label>
-                <label>
-                    <input type="radio" name="genType" value="phrases"> Phrases
-                </label>
-            </div>
-            <button onclick="generateContent()">Generate Content</button>
-            <button id="saveButton" onclick="saveSession()">Save Session</button>
+        <div class="radio-group">
+            <input type="radio" id="words" name="type" value="words" checked>
+            <label for="words">Words</label>
+            <input type="radio" id="phrases" name="type" value="phrases">
+            <label for="phrases">Phrases</label>
         </div>
+        
+        <button onclick="generateContent()">Generate Content</button>
+        <button id="saveButton" onclick="saveAndExit()" style="display: none;">Save Session & Exit</button>
         
         <p id="loading" class="loading">Generating content...</p>
         <div id="results"></div>
     </div>
 
     <script>
-        const baseUrl = window.location.origin;
         let currentUsername = '';
+        let sessionTranslations = [];
+        let currentPage = 1;
+        const itemsPerPage = 5;
         
-        function submitUsername() {
-            const usernameInput = document.getElementById('username');
-            const username = usernameInput.value.trim();
+        function displayTranslations(translations) {
+            const resultsElement = document.getElementById('results');
+            resultsElement.innerHTML = '';
             
-            if (username) {
-                currentUsername = username;
-                document.getElementById('usernameForm').style.display = 'none';
-                document.getElementById('appContent').style.display = 'block';
-                document.getElementById('userDisplay').textContent = username;
-            } else {
-                alert('Please enter a username');
+            if (!translations.length) {
+                resultsElement.innerHTML = '<p>No translations yet.</p>';
+                return;
+            }
+            
+            const totalPages = Math.ceil(translations.length / itemsPerPage);
+            const startIndex = (currentPage - 1) * itemsPerPage;
+            const endIndex = Math.min(startIndex + itemsPerPage, translations.length);
+            const pageTranslations = translations.slice(startIndex, endIndex);
+            
+            // Add pagination at top
+            resultsElement.appendChild(createPaginationControls(totalPages));
+            
+            // Add translations
+            pageTranslations.forEach(translation => {
+                const card = document.createElement('div');
+                card.className = 'translation-card';
+                card.innerHTML = `
+                    <h3>English: ${translation.english}</h3>
+                    <p>Odia: ${translation.odia}</p>
+                `;
+                resultsElement.appendChild(card);
+            });
+            
+            // Add pagination at bottom
+            resultsElement.appendChild(createPaginationControls(totalPages));
+        }
+        
+        function createPaginationControls(totalPages) {
+            const nav = document.createElement('div');
+            nav.className = 'pagination';
+            nav.innerHTML = `
+                <button onclick="changePage(${currentPage - 1})" ${currentPage <= 1 ? 'disabled' : ''}>
+                    Previous
+                </button>
+                <span>Page ${currentPage} of ${totalPages}</span>
+                <button onclick="changePage(${currentPage + 1})" ${currentPage >= totalPages ? 'disabled' : ''}>
+                    Next
+                </button>
+            `;
+            return nav;
+        }
+        
+        function changePage(newPage) {
+            if (newPage >= 1 && newPage <= Math.ceil(sessionTranslations.length / itemsPerPage)) {
+                currentPage = newPage;
+                displayTranslations(sessionTranslations);
             }
         }
         
-        function getSelectedType() {
-            return document.querySelector('input[name="genType"]:checked').value;
+        function submitUsername() {
+            const username = document.getElementById('username').value.trim();
+            if (!username) {
+                alert('Please enter a username');
+                return;
+            }
+            
+            currentUsername = username;
+            
+            fetch(`${baseUrl}/start-session`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ username })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    sessionTranslations = data.translations;
+                    currentPage = 1;
+                    document.getElementById('usernameForm').style.display = 'none';
+                    document.getElementById('appContent').style.display = 'block';
+                    document.getElementById('userDisplay').textContent = username;
+                    displayTranslations(sessionTranslations);
+                    if (sessionTranslations.length > 0) {
+                        document.getElementById('saveButton').style.display = 'inline-block';
+                    }
+                }
+            })
+            .catch(error => console.error('Error:', error));
         }
         
         function generateContent() {
             const loadingElement = document.getElementById('loading');
-            const resultsElement = document.getElementById('results');
-            const saveButton = document.getElementById('saveButton');
-            
             loadingElement.style.display = 'block';
-            resultsElement.innerHTML = '';
             
             fetch(`${baseUrl}/generate`, {
                 method: 'POST',
                 headers: {
-                    'Accept': 'application/json',
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ 
-                    type: getSelectedType(),
+                body: JSON.stringify({
+                    type: document.querySelector('input[name="type"]:checked').value,
                     username: currentUsername
                 })
             })
             .then(response => response.json())
             .then(data => {
                 loadingElement.style.display = 'none';
-                
                 if (data.success) {
-                    data.translations.forEach(translation => {
-                        const card = document.createElement('div');
-                        card.className = 'translation-card';
-                        card.innerHTML = `
-                            <h3>English: ${translation.english}</h3>
-                            <p>Odia: ${translation.odia}</p>
-                        `;
-                        resultsElement.appendChild(card);
-                    });
-                    saveButton.style.display = 'inline-block';
-                } else {
-                    resultsElement.innerHTML = `<p style="color: red;">Error: ${data.error}</p>`;
+                    sessionTranslations = data.translations;
+                    // Go to the last page to show new content
+                    currentPage = Math.ceil(sessionTranslations.length / itemsPerPage);
+                    displayTranslations(sessionTranslations);
+                    document.getElementById('saveButton').style.display = 'inline-block';
                 }
             })
             .catch(error => {
                 loadingElement.style.display = 'none';
-                resultsElement.innerHTML = `<p style="color: red;">Error: ${error}</p>`;
+                console.error('Error:', error);
             });
         }
-
-        function saveSession() {
-            const saveButton = document.getElementById('saveButton');
-            saveButton.disabled = true;
-            saveButton.textContent = 'Saving...';
-            
-            fetch(`${baseUrl}/save-session`, {
+        
+        function saveAndExit() {
+            fetch(`${baseUrl}/save-and-exit`, {
                 method: 'POST',
                 headers: {
-                    'Accept': 'application/json',
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({ username: currentUsername })
@@ -190,18 +266,18 @@ HTML_TEMPLATE = """
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    alert('Session saved successfully!');
-                } else {
-                    alert(`Error saving session: ${data.error}`);
+                    // Reset session state
+                    sessionTranslations = [];
+                    currentPage = 1;
+                    currentUsername = '';
+                    
+                    // Show username form and hide app content
+                    document.getElementById('usernameForm').style.display = 'block';
+                    document.getElementById('appContent').style.display = 'none';
+                    document.getElementById('username').value = '';
                 }
             })
-            .catch(error => {
-                alert(`Error saving session: ${error}`);
-            })
-            .finally(() => {
-                saveButton.disabled = false;
-                saveButton.textContent = 'Save Session';
-            });
+            .catch(error => console.error('Error:', error));
         }
     </script>
 </body>
