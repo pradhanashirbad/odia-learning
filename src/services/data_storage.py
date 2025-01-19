@@ -10,7 +10,7 @@ class DataStorageService:
         self.blob_storage = blob_storage
         self.base_dir = os.path.join(os.getcwd(), "datafiles")
         self._ensure_directories()
-        self.current_translations = []  # Store current session translations
+        self.session_translations = []  # Current session storage
 
     def _ensure_directories(self):
         """Ensure datafiles directory exists"""
@@ -36,14 +36,30 @@ class DataStorageService:
         user_dir = self._get_user_dir(username)
         return os.path.join(user_dir, f"session_{timestamp}.json")
 
-    def add_translations(self, new_translations):
-        """Add new translations to current session"""
-        self.current_translations.extend(new_translations)
-        return self.current_translations
-
-    def save_session_data(self, translations, username=None):
-        """Save session data to a new timestamped file"""
+    def start_session(self, username):
+        """Start a new session by loading existing translations"""
         try:
+            existing = self.get_all_user_translations(username)
+            self.session_translations = existing
+            return existing
+        except Exception as e:
+            logger.error(f"Error starting session: {e}")
+            self.session_translations = []
+            return []
+
+    def add_to_session(self, new_translations):
+        """Add new translations to current session"""
+        self.session_translations.extend(new_translations)
+        return self.session_translations
+
+    def save_session_data(self, username=None):
+        """Save entire session data to a new timestamped file"""
+        try:
+            if not username:
+                raise ValueError("Username is required")
+            if not self.session_translations:
+                raise ValueError("No translations to save")
+
             # Create user directory if it doesn't exist
             user_dir = self._get_user_dir(username)
             os.makedirs(user_dir, exist_ok=True)
@@ -51,21 +67,23 @@ class DataStorageService:
             session_file = self._get_session_filepath(username)
             logger.info(f"Saving session data to: {session_file}")
 
-            # Save data with pretty formatting
+            # Save all session data with pretty formatting
             with open(session_file, 'w', encoding='utf-8') as f:
-                json.dump(translations, f, ensure_ascii=False, indent=4)
-            
-            # Store current translations in memory
-            self.current_translations = translations
+                json.dump(self.session_translations, f, ensure_ascii=False, indent=4)
+
             return {"local_path": session_file}
         except Exception as e:
             logger.error(f"Error saving session data: {e}")
             return None
 
+    def end_session(self):
+        """Clear session data"""
+        self.session_translations = []
+
     async def save_permanent_copy(self, username=None):
         """Save permanent copy to blob storage"""
         try:
-            if not self.current_translations:
+            if not self.session_translations:
                 raise ValueError("No translations available to save")
 
             if self.blob_storage:
@@ -75,15 +93,15 @@ class DataStorageService:
                 
                 # Upload to blob storage with pretty formatting
                 blob_url = await self.blob_storage.upload_blob(
-                    json.dumps(self.current_translations, ensure_ascii=False, indent=4),
+                    json.dumps(self.session_translations, ensure_ascii=False, indent=4),
                     blob_name
                 )
 
                 if not blob_url:
                     raise Exception("Failed to upload to blob storage")
 
-                # Clear current translations after successful save
-                self.current_translations = []
+                # Clear session translations after successful save
+                self.session_translations = []
                 
                 return {
                     "blob_url": blob_url,

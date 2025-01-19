@@ -219,6 +219,27 @@ def register_routes(app):
     def index():
         return render_template_string(HTML_TEMPLATE)
 
+    @app.route('/start-session', methods=['POST'])
+    def start_session():
+        try:
+            username = request.json.get('username')
+            if not username:
+                raise ValueError("Username is required")
+            
+            logger.info(f"Starting session for user: {username}")
+            translations = data_storage.start_session(username)
+            
+            return jsonify({
+                'success': True,
+                'translations': translations
+            })
+        except Exception as e:
+            logger.error(f"Error starting session: {str(e)}")
+            return jsonify({
+                'success': False,
+                'error': str(e)
+            }), 500
+
     @app.route('/generate', methods=['POST'])
     def generate():
         try:
@@ -227,26 +248,55 @@ def register_routes(app):
             
             if not username:
                 raise ValueError("Username is required")
-                
-            # Get existing words for duplicate checking
-            existing_words = data_storage.get_existing_words(username)
-            logger.info(f"Found {len(existing_words)} existing words for user: {username}")
             
-            # Pass existing words to avoid duplicates
+            # Get all existing translations for context
+            existing_words = [t.get('english', '') for t in data_storage.session_translations]
+            logger.info(f"Found {len(existing_words)} existing translations in session")
+            
+            # Generate new content
             new_translations = odia_phrase_service.process_phrases(
-                gen_type=gen_type, 
+                gen_type=gen_type,
                 existing_words=existing_words
             )
             
-            # Save locally with username
-            data_storage.save_session_data(new_translations, username)
+            # Add to session
+            all_translations = data_storage.add_to_session(new_translations)
             
             return jsonify({
                 'success': True,
-                'translations': new_translations
+                'translations': all_translations
             })
         except Exception as e:
             logger.error(f"Error in generate: {str(e)}")
+            return jsonify({
+                'success': False,
+                'error': str(e)
+            }), 500
+
+    @app.route('/save-and-exit', methods=['POST'])
+    def save_and_exit():
+        try:
+            username = request.json.get('username')
+            if not username:
+                raise ValueError("Username is required")
+                
+            logger.info(f"Saving and ending session for user: {username}")
+            
+            # Save locally
+            data_storage.save_session_data(username)
+            
+            # Save to blob storage
+            storage_info = async_to_sync(data_storage.save_permanent_copy)(username)
+            
+            # End session
+            data_storage.end_session()
+            
+            return jsonify({
+                'success': True,
+                'storage_info': storage_info
+            })
+        except Exception as e:
+            logger.error(f"Error in save_and_exit: {str(e)}")
             return jsonify({
                 'success': False,
                 'error': str(e)
