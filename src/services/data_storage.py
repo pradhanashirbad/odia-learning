@@ -59,7 +59,7 @@ class DataStorageService:
         """Add new translations to current session"""
         # Extend current translations with new ones
         self.current_translations.extend(new_translations)
-        
+        # print(self.current_translations)
         # Return a copy to avoid reference issues
         return list(self.current_translations)
 
