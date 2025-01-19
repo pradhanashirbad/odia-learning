@@ -39,9 +39,20 @@ class DataStorageService:
     def start_session(self, username):
         """Start a new session by loading existing translations"""
         try:
+            if not username:
+                raise ValueError("Username is required")
+                
+            logger.info(f"Starting session for user: {username}")
+            
+            # Load existing translations
             existing = self.get_all_user_translations(username)
+            logger.info(f"Found {len(existing)} existing translations")
+            
+            # Initialize session storage
             self.session_translations = existing
+            
             return existing
+            
         except Exception as e:
             logger.error(f"Error starting session: {e}")
             self.session_translations = []
@@ -119,7 +130,10 @@ class DataStorageService:
         """Get all translations from user's previous sessions"""
         try:
             user_dir = self._get_user_dir(username)
+            logger.info(f"Checking directory: {user_dir}")
+            
             if not os.path.exists(user_dir):
+                logger.info(f"No existing directory for user: {username}")
                 return []
 
             all_translations = []
@@ -127,13 +141,15 @@ class DataStorageService:
             for filename in os.listdir(user_dir):
                 if filename.endswith('.json'):
                     file_path = os.path.join(user_dir, filename)
+                    logger.info(f"Reading file: {file_path}")
                     with open(file_path, 'r', encoding='utf-8') as f:
                         translations = json.load(f)
                         if isinstance(translations, list):
                             all_translations.extend(translations)
 
-            logger.info(f"Found {len(all_translations)} previous translations for user: {username}")
+            logger.info(f"Found {len(all_translations)} translations for user: {username}")
             return all_translations
+            
         except Exception as e:
             logger.error(f"Error reading user translations: {e}")
             return []

@@ -303,7 +303,10 @@ def register_routes(app):
                 raise ValueError("Username is required")
             
             logger.info(f"Starting session for user: {username}")
+            
+            # Initialize session and load existing translations
             translations = data_storage.start_session(username)
+            logger.info(f"Loaded {len(translations)} translations for user: {username}")
             
             return jsonify({
                 'success': True,
