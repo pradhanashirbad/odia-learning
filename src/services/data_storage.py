@@ -10,7 +10,7 @@ class DataStorageService:
         self.blob_storage = blob_storage
         self.base_dir = os.path.join(os.getcwd(), "datafiles")
         self._ensure_directories()
-        self.current_translations = None  # Store current translations in memory
+        self.current_translations = []  # Store only current session translations
 
     def _ensure_directories(self):
         """Ensure datafiles directory exists"""
@@ -36,9 +36,42 @@ class DataStorageService:
         user_dir = self._get_user_dir(username)
         return os.path.join(user_dir, f"session_{timestamp}.json")
 
-    def save_session_data(self, translations, username=None):
-        """Save session data to a new timestamped file"""
+    def get_existing_words(self, username=None):
+        """Get existing words from previous sessions for prompt context"""
         try:
+            user_dir = self._get_user_dir(username)
+            if not os.path.exists(user_dir):
+                return []
+
+            all_translations = []
+            # Read all JSON files in user's directory
+            for filename in os.listdir(user_dir):
+                if filename.endswith('.json'):
+                    file_path = os.path.join(user_dir, filename)
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        translations = json.load(f)
+                        if isinstance(translations, list):
+                            all_translations.extend(translations)
+
+            # Extract only English words for prompt context
+            return [item.get('english', '') for item in all_translations if 'english' in item]
+        except Exception as e:
+            logger.error(f"Error getting existing words: {e}")
+            return []
+
+    def add_to_session(self, translations):
+        """Add new translations to current session"""
+        self.current_translations.extend(translations)
+        return self.current_translations
+
+    def save_session_data(self, username=None):
+        """Save current session data to a new timestamped file"""
+        try:
+            if not username:
+                raise ValueError("Username is required")
+            if not self.current_translations:
+                raise ValueError("No translations to save")
+
             # Create user directory if it doesn't exist
             user_dir = self._get_user_dir(username)
             os.makedirs(user_dir, exist_ok=True)
@@ -46,16 +79,18 @@ class DataStorageService:
             session_file = self._get_session_filepath(username)
             logger.info(f"Saving session data to: {session_file}")
 
-            # Save data with pretty formatting
+            # Save only current session data
             with open(session_file, 'w', encoding='utf-8') as f:
-                json.dump(translations, f, ensure_ascii=False, indent=4)
-            
-            # Store current translations in memory
-            self.current_translations = translations
+                json.dump(self.current_translations, f, ensure_ascii=False, indent=4)
+
             return {"local_path": session_file}
         except Exception as e:
             logger.error(f"Error saving session data: {e}")
             return None
+
+    def clear_session(self):
+        """Clear current session data"""
+        self.current_translations = []
 
     def get_all_user_translations(self, username):
         """Get all translations from user's previous sessions"""
@@ -79,11 +114,6 @@ class DataStorageService:
         except Exception as e:
             logger.error(f"Error reading user translations: {e}")
             return []
-
-    def get_existing_words(self, username=None):
-        """Get existing words from user's previous sessions"""
-        translations = self.get_all_user_translations(username)
-        return [item.get('english', '') for item in translations if 'english' in item]
 
     async def save_permanent_copy(self, username=None):
         """Save permanent copy to blob storage"""

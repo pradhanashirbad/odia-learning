@@ -345,22 +345,22 @@ def register_routes(app):
             if not username:
                 raise ValueError("Username is required")
                 
-            # Get existing words for duplicate checking
+            # Get existing words for prompt context only
             existing_words = data_storage.get_existing_words(username)
-            logger.info(f"Found {len(existing_words)} existing words for user: {username}")
+            logger.info(f"Found {len(existing_words)} existing words for context")
             
-            # Pass existing words to avoid duplicates
+            # Generate new content
             new_translations = odia_phrase_service.process_phrases(
                 gen_type=gen_type, 
                 existing_words=existing_words
             )
             
-            # Save locally with username
-            data_storage.save_session_data(new_translations, username)
+            # Add to current session
+            all_session_translations = data_storage.add_to_session(new_translations)
             
             return jsonify({
                 'success': True,
-                'translations': new_translations
+                'translations': all_session_translations  # Return all session translations
             })
         except Exception as e:
             logger.error(f"Error in generate: {str(e)}")
@@ -378,14 +378,14 @@ def register_routes(app):
                 
             logger.info(f"Saving and ending session for user: {username}")
             
-            # Save locally
+            # Save current session
             data_storage.save_session_data(username)
             
             # Save to blob storage
             storage_info = async_to_sync(data_storage.save_permanent_copy)(username)
             
-            # End session
-            data_storage.end_session()
+            # Clear session
+            data_storage.clear_session()
             
             return jsonify({
                 'success': True,
