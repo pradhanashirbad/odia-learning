@@ -353,7 +353,7 @@ def register_routes(app):
             if not username:
                 raise ValueError("Username is required")
                 
-            # Get existing words for prompt context
+            # Get existing words for prompt context (previous + current)
             existing_words = data_storage.get_existing_words()
             logger.info(f"Using {len(existing_words)} words for context")
             
@@ -363,13 +363,12 @@ def register_routes(app):
                 existing_words=existing_words
             )
             
-            # Add to current session and get current session translations
+            # Add to current session display and context
             session_translations = data_storage.add_to_session(new_translations)
-            logger.info(f"Added {len(new_translations)} new translations to current session")
             
             return jsonify({
                 'success': True,
-                'translations': session_translations
+                'translations': session_translations  # Return all current session translations
             })
         except Exception as e:
             logger.error(f"Error in generate: {str(e)}")
