@@ -353,9 +353,9 @@ def register_routes(app):
             if not username:
                 raise ValueError("Username is required")
                 
-            # Get existing words for prompt context only
+            # Get both previous and current session words for context
             existing_words = data_storage.get_existing_words(username)
-            logger.info(f"Found {len(existing_words)} existing words for context")
+            logger.info(f"Found {len(existing_words)} total existing words for context")
             
             # Generate new content
             new_translations = odia_phrase_service.process_phrases(
