@@ -83,4 +83,36 @@ class DataStorageService:
     def get_existing_words(self, username=None):
         """Get existing words from user's previous sessions"""
         translations = self.get_all_user_translations(username)
-        return [item.get('english', '') for item in translations if 'english' in item] 
+        return [item.get('english', '') for item in translations if 'english' in item]
+
+    async def save_permanent_copy(self, username=None):
+        """Save permanent copy to blob storage"""
+        try:
+            if not self.current_translations:
+                raise ValueError("No translations available to save")
+
+            if self.blob_storage:
+                # Use timestamped filename for blob storage
+                timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+                blob_name = f"{username}/session_{timestamp}.json"
+                
+                # Upload to blob storage with pretty formatting
+                blob_url = await self.blob_storage.upload_blob(
+                    json.dumps(self.current_translations, ensure_ascii=False, indent=4),
+                    blob_name
+                )
+
+                if not blob_url:
+                    raise Exception("Failed to upload to blob storage")
+
+                return {
+                    "blob_url": blob_url,
+                    "filename": blob_name
+                }
+            else:
+                logger.warning("No blob storage configured")
+                return {"local_path": None}
+
+        except Exception as e:
+            logger.error(f"Error saving permanent copy: {e}")
+            raise 
