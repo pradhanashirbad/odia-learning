@@ -329,13 +329,13 @@ def register_routes(app):
             
             logger.info(f"Starting session for user: {username}")
             
-            # Initialize session and load existing translations
+            # Start fresh session
             translations = data_storage.start_session(username)
-            logger.info(f"Loaded {len(translations)} translations for user: {username}")
+            logger.info(f"Started new session for user: {username}")
             
             return jsonify({
                 'success': True,
-                'translations': translations
+                'translations': translations  # Will be empty array
             })
         except Exception as e:
             logger.error(f"Error starting session: {str(e)}")

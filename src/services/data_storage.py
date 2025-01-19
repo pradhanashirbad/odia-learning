@@ -55,6 +55,24 @@ class DataStorageService:
         logger.info(f"Found {len(previous_words)} previous words and {len(current_words)} current session words")
         return all_words
 
+    def start_session(self, username):
+        """Start a new session"""
+        try:
+            if not username:
+                raise ValueError("Username is required")
+            
+            logger.info(f"Starting new session for user: {username}")
+            
+            # Start with empty current translations
+            self.current_translations = []
+            
+            return self.current_translations
+            
+        except Exception as e:
+            logger.error(f"Error starting session: {e}")
+            self.current_translations = []
+            return []
+
     def add_to_session(self, new_translations):
         """Add new translations to current session"""
         # Extend current translations with new ones
