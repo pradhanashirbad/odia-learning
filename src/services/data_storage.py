@@ -10,7 +10,8 @@ class DataStorageService:
         self.blob_storage = blob_storage
         self.base_dir = os.path.join(os.getcwd(), "datafiles")
         self._ensure_directories()
-        self.current_translations = []  # Store only current session translations
+        self.current_translations = []  # Only current session translations
+        self.existing_words = []  # For prompt context only
 
     def _ensure_directories(self):
         """Ensure datafiles directory exists"""
@@ -41,55 +42,43 @@ class DataStorageService:
         translations = self.get_all_user_translations(username)
         return [item.get('odia', '') for item in translations if 'odia' in item]
 
-    def get_existing_words(self, username=None):
-        """Get all existing Odia words/phrases (previous + current session)"""
-        # Get words from previous sessions
-        previous_words = self.get_previous_words(username)
-        
-        # Get words from current session (only unique ones)
-        current_words = [item.get('odia', '') for item in self.current_translations if 'odia' in item]
-        
-        # Combine both sets of words, ensuring uniqueness
-        all_words = list(dict.fromkeys(previous_words + current_words))
-        
-        logger.info(f"Found {len(previous_words)} previous words and {len(current_words)} current session words")
-        return all_words
+    def get_existing_words(self):
+        """Get all existing words for prompt context"""
+        return list(self.existing_words)
 
     def start_session(self, username):
-        """Start a new session"""
+        """Start a new session and load existing words for context"""
         try:
             if not username:
                 raise ValueError("Username is required")
             
             logger.info(f"Starting new session for user: {username}")
             
-            # Start with empty current translations
+            # Clear current session translations
             self.current_translations = []
             
-            return self.current_translations
+            # Load previous words for prompt context only
+            previous_translations = self.get_all_user_translations(username)
+            self.existing_words = [item.get('odia', '') for item in previous_translations if 'odia' in item]
+            logger.info(f"Loaded {len(self.existing_words)} previous words for context")
+            
+            return []  # Return empty list for fresh session display
             
         except Exception as e:
             logger.error(f"Error starting session: {e}")
             self.current_translations = []
+            self.existing_words = []
             return []
 
     def add_to_session(self, new_translations):
         """Add new translations to current session"""
-        # Check for duplicates before adding
-        existing_odia = {t.get('odia', '') for t in self.current_translations}
+        # Add to current session display
+        self.current_translations.extend(new_translations)
         
-        # Only add translations that aren't already in the session
-        unique_translations = [
-            t for t in new_translations 
-            if t.get('odia', '') not in existing_odia
-        ]
+        # Add to existing words for prompt context
+        self.existing_words.extend([t.get('odia', '') for t in new_translations if 'odia' in t])
         
-        # Extend current translations with unique ones
-        self.current_translations.extend(unique_translations)
-        
-        logger.info(f"Added {len(unique_translations)} unique translations to session. Total: {len(self.current_translations)}")
-        
-        # Return a copy to avoid reference issues
+        # Return only current session translations
         return list(self.current_translations)
 
     def save_session_data(self, username=None):
