@@ -10,7 +10,7 @@ class DataStorageService:
         self.blob_storage = blob_storage
         self.base_dir = os.path.join(os.getcwd(), "datafiles")
         self._ensure_directories()
-        self.session_translations = []  # Current session storage
+        self.current_translations = None  # Store current translations in memory
 
     def _ensure_directories(self):
         """Ensure datafiles directory exists"""
@@ -32,36 +32,9 @@ class DataStorageService:
         """Get full path to session file with timestamp"""
         if not username:
             raise ValueError("Username is required")
-        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")  # Removed underscore
+        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
         user_dir = self._get_user_dir(username)
         return os.path.join(user_dir, f"session_{timestamp}.json")
-
-    def start_session(self, username):
-        """Start a new session by loading existing translations"""
-        try:
-            if not username:
-                raise ValueError("Username is required")
-                
-            logger.info(f"Starting session for user: {username}")
-            
-            # Load existing translations
-            existing = self.get_all_user_translations(username)
-            logger.info(f"Found {len(existing)} existing translations")
-            
-            # Initialize session storage
-            self.session_translations = existing
-            
-            return existing
-            
-        except Exception as e:
-            logger.error(f"Error starting session: {e}")
-            self.session_translations = []
-            return []
-
-    def add_to_session(self, new_translations):
-        """Add new translations to current session"""
-        self.session_translations.extend(new_translations)
-        return self.session_translations
 
     def save_session_data(self, translations, username=None):
         """Save session data to a new timestamped file"""
@@ -84,53 +57,11 @@ class DataStorageService:
             logger.error(f"Error saving session data: {e}")
             return None
 
-    def end_session(self):
-        """Clear session data"""
-        self.session_translations = []
-
-    async def save_permanent_copy(self, username=None):
-        """Save permanent copy to blob storage"""
-        try:
-            if not self.session_translations:
-                raise ValueError("No translations available to save")
-
-            if self.blob_storage:
-                # Use timestamped filename for blob storage
-                timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-                blob_name = f"{username}/session_{timestamp}.json"
-                
-                # Upload to blob storage with pretty formatting
-                blob_url = await self.blob_storage.upload_blob(
-                    json.dumps(self.session_translations, ensure_ascii=False, indent=4),
-                    blob_name
-                )
-
-                if not blob_url:
-                    raise Exception("Failed to upload to blob storage")
-
-                # Clear session translations after successful save
-                self.session_translations = []
-                
-                return {
-                    "blob_url": blob_url,
-                    "filename": blob_name
-                }
-            else:
-                logger.warning("No blob storage configured")
-                return {"local_path": None}
-
-        except Exception as e:
-            logger.error(f"Error saving permanent copy: {e}")
-            raise
-
     def get_all_user_translations(self, username):
         """Get all translations from user's previous sessions"""
         try:
             user_dir = self._get_user_dir(username)
-            logger.info(f"Checking directory: {user_dir}")
-            
             if not os.path.exists(user_dir):
-                logger.info(f"No existing directory for user: {username}")
                 return []
 
             all_translations = []
@@ -138,15 +69,13 @@ class DataStorageService:
             for filename in os.listdir(user_dir):
                 if filename.endswith('.json'):
                     file_path = os.path.join(user_dir, filename)
-                    logger.info(f"Reading file: {file_path}")
                     with open(file_path, 'r', encoding='utf-8') as f:
                         translations = json.load(f)
                         if isinstance(translations, list):
                             all_translations.extend(translations)
 
-            logger.info(f"Found {len(all_translations)} translations for user: {username}")
+            logger.info(f"Found {len(all_translations)} previous translations for user: {username}")
             return all_translations
-            
         except Exception as e:
             logger.error(f"Error reading user translations: {e}")
             return []
