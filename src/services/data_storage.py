@@ -46,19 +46,22 @@ class DataStorageService:
         # Get words from previous sessions
         previous_words = self.get_previous_words(username)
         
-        # Get words from current session
+        # Get words from current session (only unique ones)
         current_words = [item.get('odia', '') for item in self.current_translations if 'odia' in item]
         
-        # Combine both sets of words
-        all_words = previous_words + current_words
+        # Combine both sets of words, ensuring uniqueness
+        all_words = list(dict.fromkeys(previous_words + current_words))
         
         logger.info(f"Found {len(previous_words)} previous words and {len(current_words)} current session words")
         return all_words
 
-    def add_to_session(self, translations):
+    def add_to_session(self, new_translations):
         """Add new translations to current session"""
-        self.current_translations.extend(translations)
-        return self.current_translations
+        # Extend current translations with new ones
+        self.current_translations.extend(new_translations)
+        
+        # Return a copy to avoid reference issues
+        return list(self.current_translations)
 
     def save_session_data(self, username=None):
         """Save current session data to a new timestamped file"""
