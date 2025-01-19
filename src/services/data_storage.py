@@ -63,14 +63,9 @@ class DataStorageService:
         self.session_translations.extend(new_translations)
         return self.session_translations
 
-    def save_session_data(self, username=None):
-        """Save entire session data to a new timestamped file"""
+    def save_session_data(self, translations, username=None):
+        """Save session data to a new timestamped file"""
         try:
-            if not username:
-                raise ValueError("Username is required")
-            if not self.session_translations:
-                raise ValueError("No translations to save")
-
             # Create user directory if it doesn't exist
             user_dir = self._get_user_dir(username)
             os.makedirs(user_dir, exist_ok=True)
@@ -78,10 +73,12 @@ class DataStorageService:
             session_file = self._get_session_filepath(username)
             logger.info(f"Saving session data to: {session_file}")
 
-            # Save all session data with pretty formatting
+            # Save data with pretty formatting
             with open(session_file, 'w', encoding='utf-8') as f:
-                json.dump(self.session_translations, f, ensure_ascii=False, indent=4)
-
+                json.dump(translations, f, ensure_ascii=False, indent=4)
+            
+            # Store current translations in memory
+            self.current_translations = translations
             return {"local_path": session_file}
         except Exception as e:
             logger.error(f"Error saving session data: {e}")
