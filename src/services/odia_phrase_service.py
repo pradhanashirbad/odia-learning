@@ -3,7 +3,7 @@ import json
 import logging
 from src.prompts.prompts_class import (
     WordGeneration, OdiaTranslation, EnglishTranslation, 
-    OdiaPhraseGeneration  # Changed from PhraseGeneration
+    PhraseTranslation  # Changed from OdiaPhraseGeneration
 )
 
 logger = logging.getLogger(__name__)
@@ -29,7 +29,7 @@ class OdiaPhraseService:
             if gen_type == 'words':
                 messages = WordGeneration.get_messages(existing_words, gen_type)
             else:
-                messages = OdiaPhraseGeneration.get_messages(existing_words)  # Changed from PhraseGeneration
+                messages = PhraseTranslation.get_messages(existing_words)  # Changed from OdiaPhraseGeneration
 
             completion = self.client.chat.completions.create(
                 messages=messages,
