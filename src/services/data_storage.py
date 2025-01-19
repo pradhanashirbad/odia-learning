@@ -1,182 +1,144 @@
 import os
 import json
-import time
-from datetime import datetime
 import logging
-import shutil
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
 class DataStorageService:
-    def __init__(self, blob_storage_service, base_dir="data"):
-        self.blob_storage = blob_storage_service
-        self.base_dir = base_dir
-        self.words_dir = os.path.join(base_dir, "words")
-        self.session_file = os.path.join(self.words_dir, "session.json")
+    def __init__(self, blob_storage=None):
+        self.blob_storage = blob_storage
+        self.base_dir = os.path.join(os.getcwd(), "datafiles")
         self._ensure_directories()
+        self.current_translations = []  # Store only current session translations
 
     def _ensure_directories(self):
-        """Ensure necessary directories exist"""
-        os.makedirs(self.words_dir, exist_ok=True)
-
-    def get_existing_words(self):
-        """
-        Get existing English words from the current session
-        """
+        """Ensure datafiles directory exists"""
         try:
-            if os.path.exists(self.session_file):
-                with open(self.session_file, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-                    return [t['english'] for t in data.get('translations', [])]
-            return []
+            if not os.path.exists(self.base_dir):
+                os.makedirs(self.base_dir, exist_ok=True)
+                logger.info(f"Created directory: {self.base_dir}")
         except Exception as e:
-            logger.error(f"Error reading existing words: {e}")
-            return []
+            logger.error(f"Error creating directories: {e}")
+            self.base_dir = "/tmp"
+            os.makedirs(self.base_dir, exist_ok=True)
+            logger.info("Using /tmp directory as fallback")
 
-    def save_session_data(self, translations, save_to_blob=True):
-        """
-        Append new translations to session.json
-        Returns the paths/urls where the data was saved
-        """
+    def _get_user_dir(self, username):
+        """Get user-specific directory"""
+        return os.path.join(self.base_dir, username)
+
+    def _get_session_filepath(self, username):
+        """Get full path to session file with timestamp"""
+        if not username:
+            raise ValueError("Username is required")
+        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+        user_dir = self._get_user_dir(username)
+        return os.path.join(user_dir, f"session_{timestamp}.json")
+
+    def get_existing_words(self, username=None):
+        """Get existing words from user's previous sessions"""
         try:
-            # Load existing translations if any
-            existing_translations = []
-            if os.path.exists(self.session_file):
-                with open(self.session_file, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-                    existing_translations = data.get('translations', [])
+            user_dir = self._get_user_dir(username)
+            if not os.path.exists(user_dir):
+                logger.info(f"New user {username}, creating directory")
+                os.makedirs(user_dir, exist_ok=True)
+                return None  # Return None for new users
+                
+            translations = self.get_all_user_translations(username)
+            if not translations:
+                logger.info(f"No existing translations for user {username}")
+                return None
+                
+            return [item.get('english', '') for item in translations if 'english' in item]
+        except Exception as e:
+            logger.error(f"Error getting existing words: {e}")
+            return None
 
-            # Combine existing and new translations
-            all_translations = existing_translations + translations
+    def add_to_session(self, translations):
+        """Add new translations to current session"""
+        self.current_translations.extend(translations)
+        return self.current_translations
 
-            # Create session data with timestamp
-            session_data = {
-                "timestamp": datetime.utcnow().isoformat(),
-                "translations": all_translations
-            }
+    def save_session_data(self, username=None):
+        """Save current session data to a new timestamped file"""
+        try:
+            if not username:
+                raise ValueError("Username is required")
+            if not self.current_translations:
+                raise ValueError("No translations to save")
 
-            # Save updated session file
-            with open(self.session_file, 'w', encoding='utf-8') as f:
-                json.dump(session_data, f, ensure_ascii=False, indent=2)
+            # Create user directory if it doesn't exist
+            user_dir = self._get_user_dir(username)
+            os.makedirs(user_dir, exist_ok=True)
             
-            logger.info(f"Session data saved to: {self.session_file}")
-            
-            blob_url = None
-            if save_to_blob:
-                # Save to blob storage
-                blob_name = "words/session.json"
-                blob_url = self.blob_storage.upload_file(self.session_file, blob_name)
-                logger.info(f"Session data saved to blob storage: {blob_url}")
+            session_file = self._get_session_filepath(username)
+            logger.info(f"Saving session data to: {session_file}")
 
-            return {
-                "local_path": self.session_file,
-                "blob_url": blob_url
-            }
+            # Save only current session data
+            with open(session_file, 'w', encoding='utf-8') as f:
+                json.dump(self.current_translations, f, ensure_ascii=False, indent=4)
 
+            return {"local_path": session_file}
         except Exception as e:
             logger.error(f"Error saving session data: {e}")
-            raise
+            return None
 
-    def save_permanent_copy(self):
-        """
-        Save a permanent copy of the current session file with timestamp
-        """
+    def clear_session(self):
+        """Clear current session data"""
+        self.current_translations = []
+
+    def get_all_user_translations(self, username):
+        """Get all translations from user's previous sessions"""
         try:
-            if not os.path.exists(self.session_file):
-                raise FileNotFoundError("No active session file found")
+            user_dir = self._get_user_dir(username)
+            if not os.path.exists(user_dir):
+                return []
 
-            # Generate filename with datetime
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            save_filename = f"saved_{timestamp}.json"
-            save_path = os.path.join(self.words_dir, save_filename)
+            all_translations = []
+            # Read all JSON files in user's directory
+            for filename in os.listdir(user_dir):
+                if filename.endswith('.json'):
+                    file_path = os.path.join(user_dir, filename)
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        translations = json.load(f)
+                        if isinstance(translations, list):
+                            all_translations.extend(translations)
 
-            # Copy session file to saved file
-            shutil.copy2(self.session_file, save_path)
-            
-            # Upload to blob if session was in blob
-            blob_url = None
-            try:
-                blob_name = f"words/{save_filename}"
-                blob_url = self.blob_storage.upload_file(save_path, blob_name)
-                logger.info(f"Saved session data to blob storage: {blob_url}")
-            except Exception as e:
-                logger.warning(f"Failed to save to blob storage: {e}")
+            logger.info(f"Found {len(all_translations)} previous translations for user: {username}")
+            return all_translations
+        except Exception as e:
+            logger.error(f"Error reading user translations: {e}")
+            return []
 
-            logger.info(f"Session saved permanently to: {save_path}")
-            
-            return {
-                "local_path": save_path,
-                "blob_url": blob_url
-            }
+    async def save_permanent_copy(self, username=None):
+        """Save permanent copy to blob storage"""
+        try:
+            if not self.current_translations:
+                raise ValueError("No translations available to save")
+
+            if self.blob_storage:
+                # Use timestamped filename for blob storage
+                timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+                blob_name = f"{username}/session_{timestamp}.json"
+                
+                # Upload to blob storage with pretty formatting
+                blob_url = await self.blob_storage.upload_blob(
+                    json.dumps(self.current_translations, ensure_ascii=False, indent=4),
+                    blob_name
+                )
+
+                if not blob_url:
+                    raise Exception("Failed to upload to blob storage")
+
+                return {
+                    "blob_url": blob_url,
+                    "filename": blob_name
+                }
+            else:
+                logger.warning("No blob storage configured")
+                return {"local_path": None}
 
         except Exception as e:
             logger.error(f"Error saving permanent copy: {e}")
-            raise
-
-    def list_saved_files(self):
-        """
-        List all saved session files (excluding current session.json)
-        """
-        try:
-            files = []
-            for filename in os.listdir(self.words_dir):
-                if filename.startswith('saved_') and filename.endswith('.json'):
-                    file_path = os.path.join(self.words_dir, filename)
-                    files.append({
-                        "filename": filename,
-                        "path": file_path,
-                        "timestamp": os.path.getmtime(file_path)
-                    })
-            return sorted(files, key=lambda x: x["timestamp"], reverse=True)
-        except Exception as e:
-            logger.error(f"Error listing saved files: {e}")
             raise 
-
-    def get_all_translations(self):
-        """Get all translations from the current session"""
-        try:
-            if os.path.exists(self.session_file):
-                with open(self.session_file, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-                    return data.get('translations', [])
-            return []
-        except Exception as e:
-            logger.error(f"Error reading translations: {e}")
-            return [] 
-
-    def save_audio_url(self, odia_text: str, audio_url: str):
-        """Save audio URL mapping for an Odia word"""
-        try:
-            audio_map = {}
-            audio_map_file = os.path.join(self.words_dir, 'audio_map.json')
-            
-            # Load existing mappings if any
-            if os.path.exists(audio_map_file):
-                with open(audio_map_file, 'r', encoding='utf-8') as f:
-                    audio_map = json.load(f)
-            
-            # Add new mapping
-            audio_map[odia_text] = audio_url
-            
-            # Save updated mappings
-            with open(audio_map_file, 'w', encoding='utf-8') as f:
-                json.dump(audio_map, f, ensure_ascii=False, indent=2)
-                
-            logger.info(f"Audio URL saved for: {odia_text}")
-            
-        except Exception as e:
-            logger.error(f"Error saving audio URL: {e}")
-            raise
-
-    def get_audio_url(self, odia_text: str) -> str:
-        """Get cached audio URL for an Odia word if it exists"""
-        try:
-            audio_map_file = os.path.join(self.words_dir, 'audio_map.json')
-            if os.path.exists(audio_map_file):
-                with open(audio_map_file, 'r', encoding='utf-8') as f:
-                    audio_map = json.load(f)
-                    return audio_map.get(odia_text)
-            return None
-        except Exception as e:
-            logger.error(f"Error getting audio URL: {e}")
-            return None 

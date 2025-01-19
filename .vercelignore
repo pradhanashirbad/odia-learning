@@ -1,0 +1,16 @@
+.venv
+venv
+.env
+__pycache__
+*.pyc
+.git
+.gitignore
+README.md
+*.log
+data/words/*
+!data/words/.gitkeep
+tests/
+*.mp3
+*.wav
+*.test.*
+requirements-dev.txt 

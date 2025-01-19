@@ -33,234 +33,25 @@
         button:hover {
             background-color: #45a049;
         }
-        .play-button {
-            background-color: #2196F3;
-            margin-top: 10px;
-            padding: 5px 15px;
-        }
-        .play-button:hover {
-            background-color: #1976D2;
-        }
-        #saveButton {
-            margin-left: 10px;
-            background-color: #ff9800;
-        }
-        #saveButton:hover {
-            background-color: #f57c00;
-        }
-        #saveButton:disabled {
-            background-color: #ccc;
-            cursor: not-allowed;
-        }
-        .pagination {
-            margin-top: 20px;
-            display: flex;
-            justify-content: center;
-            gap: 10px;
-        }
-        
-        .pagination button {
-            background-color: #2196F3;
-            padding: 5px 15px;
-        }
-        
-        .pagination button:disabled {
-            background-color: #ccc;
-            cursor: not-allowed;
-        }
-        
-        .page-info {
-            margin: 0 15px;
-            line-height: 35px;
-        }
-        .play-button:disabled {
-            background-color: #ccc;
-            cursor: not-allowed;
-        }
-        .upload-section {
-            margin-bottom: 20px;
-        }
-        
-        .upload-section button {
-            background-color: #673AB7;
-        }
-        
-        .upload-section button:hover {
-            background-color: #5E35B1;
-        }
-        
-        #uploadStatus {
-            margin-left: 10px;
-            font-style: italic;
-        }
-        .generation-type {
-            margin: 20px 0;
-        }
-        .generation-type label {
-            margin-right: 20px;
-            cursor: pointer;
-        }
-        .generation-type input[type="radio"] {
-            margin-right: 5px;
-        }
     </style>
 </head>
 <body>
     <h1>Odia Learning App</h1>
     
-    <div class="upload-section">
-        <input type="file" id="sessionUpload" accept=".json" style="display: none;" onchange="handleFileUpload(event)">
-        <button onclick="document.getElementById('sessionUpload').click()">Upload Previous Session</button>
-        <span id="uploadStatus"></span>
-    </div>
-    
-    <div class="generation-type">
-        <label>
-            <input type="radio" name="genType" value="words" checked> 
-            Single Words
-        </label>
-        <label>
-            <input type="radio" name="genType" value="phrases">
-            Phrases/Short Sentences
-        </label>
-    </div>
-    
-    <button onclick="generateWords()">Generate New Words</button>
-    <button onclick="saveSession()" id="saveButton" style="display: none; background-color: #ff9800;">Save Session</button>
-    <p id="loading" class="loading">Generating words and translations...</p>
+    <button onclick="generatePhrases()">Generate Odia Phrases</button>
+    <p id="loading" class="loading">Generating phrases...</p>
     
     <div id="results"></div>
-    
-    <div class="pagination" id="pagination" style="display: none;">
-        <button onclick="previousPage()" id="prevButton">Previous</button>
-        <span class="page-info">Page <span id="currentPage">1</span> of <span id="totalPages">1</span></span>
-        <button onclick="nextPage()" id="nextButton">Next</button>
-    </div>
 
     <script>
         const baseUrl = window.location.origin;
-        let allTranslations = [];
-        let currentPageIndex = 0;
-        const ITEMS_PER_PAGE = 5;
         
-        function displayCurrentPage() {
-            const resultsElement = document.getElementById('results');
-            const startIndex = currentPageIndex * ITEMS_PER_PAGE;
-            const endIndex = startIndex + ITEMS_PER_PAGE;
-            const currentTranslations = allTranslations.slice(startIndex, endIndex);
-            const totalPages = Math.ceil(allTranslations.length / ITEMS_PER_PAGE);
-            
-            resultsElement.innerHTML = '';
-            currentTranslations.forEach(translation => {
-                const card = document.createElement('div');
-                card.className = 'translation-card';
-                card.innerHTML = `
-                    <h3>English: ${translation.english}</h3>
-                    <p>Odia: ${translation.odia}</p>
-                    <p>Romanized: ${translation.romanized_odia}</p>
-                    <button class="play-button" onclick="playAudio('${translation.odia}', this)">
-                        Play Pronunciation
-                    </button>
-                `;
-                resultsElement.appendChild(card);
-            });
-            
-            // Update pagination UI
-            document.getElementById('currentPage').textContent = currentPageIndex + 1;
-            document.getElementById('totalPages').textContent = totalPages;
-            document.getElementById('prevButton').disabled = currentPageIndex === 0;
-            document.getElementById('nextButton').disabled = currentPageIndex >= totalPages - 1;
-        }
-        
-        function nextPage() {
-            if (currentPageIndex < Math.ceil(allTranslations.length / ITEMS_PER_PAGE) - 1) {
-                currentPageIndex++;
-                displayCurrentPage();
-            }
-        }
-        
-        function previousPage() {
-            if (currentPageIndex > 0) {
-                currentPageIndex--;
-                displayCurrentPage();
-            }
-        }
-
-        function playAudio(text, button) {
-            button.disabled = true;
-            button.textContent = 'Loading...';
-            
-            fetch(`${baseUrl}/pronounce`, {
-                method: 'POST',
-                headers: {
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ text: text })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    const audio = new Audio(data.audio_url);
-                    button.textContent = data.cached ? 'Playing (cached)' : 'Playing (new)';
-                    audio.play();
-                    audio.onended = () => {
-                        button.disabled = false;
-                        button.textContent = 'Play Pronunciation';
-                    };
-                } else {
-                    alert(`Error: ${data.error}`);
-                    button.disabled = false;
-                    button.textContent = 'Play Pronunciation';
-                }
-            })
-            .catch(error => {
-                alert(`Error: ${error}`);
-                button.disabled = false;
-                button.textContent = 'Play Pronunciation';
-            });
-        }
-
-        function saveSession() {
-            const saveButton = document.getElementById('saveButton');
-            saveButton.disabled = true;
-            saveButton.textContent = 'Saving...';
-            
-            fetch(`${baseUrl}/save-session`, {
-                method: 'POST',
-                headers: {
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json'
-                },
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    alert('Session saved successfully!');
-                } else {
-                    alert(`Error saving session: ${data.error}`);
-                }
-            })
-            .catch(error => {
-                alert(`Error saving session: ${error}`);
-            })
-            .finally(() => {
-                saveButton.disabled = false;
-                saveButton.textContent = 'Save Session';
-            });
-        }
-
-        function generateWords() {
+        function generatePhrases() {
             const loadingElement = document.getElementById('loading');
             const resultsElement = document.getElementById('results');
-            const saveButton = document.getElementById('saveButton');
-            const paginationElement = document.getElementById('pagination');
-            const genType = document.querySelector('input[name="genType"]:checked').value;
             
             loadingElement.style.display = 'block';
             resultsElement.innerHTML = '';
-            saveButton.style.display = 'none';
-            paginationElement.style.display = 'none';
             
             fetch(`${baseUrl}/generate`, {
                 method: 'POST',
@@ -268,21 +59,19 @@
                     'Accept': 'application/json',
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ type: genType })
+                body: JSON.stringify({ type: 'phrases' })
             })
             .then(response => response.json())
             .then(data => {
                 loadingElement.style.display = 'none';
                 
                 if (data.success) {
-                    // Calculate the page index where new words will start
-                    const newWordsStartIndex = allTranslations.length;
-                    allTranslations = [...allTranslations, ...data.translations];
-                    // Set page to where new words begin
-                    currentPageIndex = Math.floor(newWordsStartIndex / ITEMS_PER_PAGE);
-                    displayCurrentPage();
-                    saveButton.style.display = 'inline-block';
-                    paginationElement.style.display = 'flex';
+                    data.translations.forEach(translation => {
+                        const card = document.createElement('div');
+                        card.className = 'translation-card';
+                        card.innerHTML = `<p>Odia: ${translation.odia}</p>`;
+                        resultsElement.appendChild(card);
+                    });
                 } else {
                     resultsElement.innerHTML = `<p style="color: red;">Error: ${data.error}</p>`;
                 }
@@ -291,54 +80,6 @@
                 loadingElement.style.display = 'none';
                 resultsElement.innerHTML = `<p style="color: red;">Error: ${error}</p>`;
             });
-        }
-
-        function handleFileUpload(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-
-            const reader = new FileReader();
-            const statusElement = document.getElementById('uploadStatus');
-            
-            reader.onload = function(e) {
-                try {
-                    const data = JSON.parse(e.target.result);
-                    if (!data.translations || !Array.isArray(data.translations)) {
-                        throw new Error('Invalid session file format');
-                    }
-                    
-                    fetch(`${baseUrl}/upload-session`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify(data)
-                    })
-                    .then(response => response.json())
-                    .then(result => {
-                        if (result.success) {
-                            statusElement.textContent = 'Session uploaded successfully!';
-                            statusElement.style.color = 'green';
-                            // Update the display with uploaded translations
-                            allTranslations = result.translations;
-                            displayCurrentPage();
-                            document.getElementById('saveButton').style.display = 'inline-block';
-                            document.getElementById('pagination').style.display = 'flex';
-                        } else {
-                            throw new Error(result.error);
-                        }
-                    })
-                    .catch(error => {
-                        statusElement.textContent = `Error: ${error.message}`;
-                        statusElement.style.color = 'red';
-                    });
-                } catch (error) {
-                    statusElement.textContent = `Error: Invalid file format`;
-                    statusElement.style.color = 'red';
-                }
-            };
-            
-            reader.readAsText(file);
         }
     </script>
 </body>

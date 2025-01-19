@@ -19,5 +19,9 @@
         "container_name": "audiofiles",
         "expiry_hours": 24,
         "data_container": "worddata"
+    },
+    "vercel_storage": {
+        "container_name": "datafiles",
+        "expiry_hours": 24
     }
 } 

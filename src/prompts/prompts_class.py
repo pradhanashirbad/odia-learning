@@ -2,16 +2,17 @@ class WordGeneration:
     @staticmethod
     def get_system_prompt(gen_type='words'):
         content = """You are a language learning assistant specializing in generating {type}.
-        You must respond with ONLY a JSON array of 10 {type}.
+        You must respond with ONLY a JSON array of 5 {type}.
         VERY IMPORTANT: Your response must be EXACTLY in this format with NO OTHER CHARACTERS:
         {example}
         - No punctuation marks in the content
         - No special characters
         - No line breaks
-        - Just a simple JSON array of strings"""
+        - Just a simple JSON array of strings
+        - Generate different items from any existing ones provided"""
 
         if gen_type == 'words':
-            example = '["eat","book","water","house","walk","run","sleep","read","write","speak"]'
+            example = '["eat","book","water","house","walk"]'
             type_desc = "everyday English words"
         else:
             example = '["how are you","I am going home","please help me","what is your name","the weather is nice"]'
@@ -27,16 +28,17 @@ class WordGeneration:
         """Create prompt for word/phrase generation"""
         type_desc = "words" if gen_type == 'words' else "phrases or short sentences"
         
-        base_content = """Return EXACTLY a JSON array of 10 simple English {type}.
-        Format must be EXACTLY like this: ["item1","item2","item3"]
+        base_content = """Return EXACTLY a JSON array of 5 simple English {type}.
+        Format must be EXACTLY like this: ["item1","item2","item3","item4","item5"]
         - No punctuation marks
         - No special characters
         - No line breaks
         - Just simple text in a JSON array"""
         
         if existing_words:
-            content = f"""These are the existing items: {', '.join(existing_words)}
+            content = f"""User has already learned these items: {', '.join(existing_words)}
             {base_content.format(type=type_desc)}
+            Generate 5 NEW items that would be useful to learn next.
             Do not repeat any existing items."""
         else:
             content = base_content.format(type=type_desc)
@@ -48,7 +50,6 @@ class WordGeneration:
 
     @staticmethod
     def get_messages(existing_words=None, gen_type='words'):
-        """Returns a list of messages for generation"""
         messages = [WordGeneration.get_system_prompt(gen_type)]
         messages.append(WordGeneration.get_generation_prompt(existing_words, gen_type))
         return messages
@@ -63,31 +64,62 @@ class OdiaTranslation:
             Each array item must be exactly in this format, no extra whitespace or formatting:
             {"english":"word","odia":"ଶବ୍ଦ","romanized_odia":"sabda"}
             Example complete response:
-            [{"english":"water","odia":"ପାଣି","romanized_odia":"paani"},{"english":"book","odia":"ବହି","romanized_odia":"bahi"}]"""
+            [{"english":"water","odia":"ପାଣି","romanized_odia":"paani"},{"english":"book","odia":"ବହି","romanized_odia":"bahi"}]
+            IMPORTANT: Return ONLY the JSON array, nothing else."""
         }
 
     @staticmethod
     def get_translation_prompt(texts):
-        """
-        Create translation prompt for the given texts
-        """
+        """Create translation prompt for the given texts"""
         words_list = ", ".join(texts)
         
         return {
             "role": "user",
-            "content": f"""Translate these words to Odia: {words_list}
+            "content": f"""Translate these English words to Odia: {words_list}
             Return a single-line JSON array with no extra whitespace or formatting.
-            Format: [{{"english":"word","odia":"ଶବ୍ଦ","romanized_odia":"sabda"}}]"""
+            Format: [{{"english":"word","odia":"ଶବ୍ଦ","romanized_odia":"sabda"}}]
+            Ensure accurate translations and romanization."""
         }
 
     @staticmethod
     def get_messages(texts):
-        """
-        Returns a list of messages for translation
-        """
         messages = [OdiaTranslation.get_system_prompt()]
         messages.append(OdiaTranslation.get_translation_prompt(texts))
-        return messages 
+        return messages
+
+
+class EnglishTranslation:
+    @staticmethod
+    def get_system_prompt():
+        return {
+            "role": "system",
+            "content": """You are an Odia to English translator.
+            Return a JSON array where each item contains the Odia text and its English translation.
+            Format: [{"odia":"ଓଡ଼ିଆ ବାକ୍ୟ","english":"English sentence","romanized_odia":"odia bakya"}]
+            IMPORTANT: 
+            - Return ONLY a valid JSON array
+            - Must start with [ and end with ]
+            - Each item must be a complete JSON object with all three fields
+            - No trailing commas
+            - No line breaks in the output"""
+        }
+
+    @staticmethod
+    def get_translation_prompt(odia_phrases):
+        phrases_list = ", ".join([f'"{phrase}"' for phrase in odia_phrases])
+        return {
+            "role": "user",
+            "content": f"""Translate these Odia phrases to English and provide romanization: {phrases_list}
+            Return as JSON array: [{{"odia":"ତୁମେ କେମିତି ଅଛ","english":"how are you","romanized_odia":"tume kemiti acha"}}]
+            IMPORTANT: Return ONLY the JSON array, nothing else.
+            Ensure accurate translations and romanization."""
+        }
+
+    @staticmethod
+    def get_messages(phrases):
+        messages = [EnglishTranslation.get_system_prompt()]
+        messages.append(EnglishTranslation.get_translation_prompt(phrases))
+        return messages
 
 
 class PhraseTranslation:
@@ -100,27 +132,35 @@ class PhraseTranslation:
             {"english":"I like to play","odia":"ମୁଁ ଖେଳିବାକୁ ଭଲପାଏ","romanized_odia":"mun khelibaku bhalapaae"}
             Example complete response:
             [{"english":"how are you","odia":"ତୁମେ କେମିତି ଅଛ","romanized_odia":"tume kemiti acha"},
-             {"english":"I am fine","odia":"ମୁଁ ଭଲ ଅଛି","romanized_odia":"mun bhala achhi"}]"""
+             {"english":"I am fine","odia":"ମୁଁ ଭଲ ଅଛି","romanized_odia":"mun bhala achhi"}]
+            Generate simple, everyday conversational phrases."""
         }
 
     @staticmethod
-    def get_translation_prompt(phrases):
+    def get_translation_prompt(phrases=None):
         """Create translation prompt for phrases"""
-        phrases_list = ", ".join([f'"{phrase}"' for phrase in phrases])
+        if phrases and len(phrases) > 0:
+            phrases_list = ", ".join([f'"{phrase}"' for phrase in phrases])
+            content = f"""Translate these English phrases to Odia: {phrases_list}
+            Return a single-line JSON array with no extra whitespace or formatting.
+            Format: [{{"english":"I am going home","odia":"ମୁଁ ଘରକୁ ଯାଉଛି","romanized_odia":"mun gharaku jauchhi"}}]"""
+        else:
+            content = """Let's start learning with 5 basic greeting and introduction phrases.
+            Return a single-line JSON array with translations for these common phrases:
+            ["hello", "how are you", "my name is", "nice to meet you", "thank you"]
+            Format: [{{"english":"hello","odia":"ନମସ୍କାର","romanized_odia":"namaskara"}}]"""
         
         return {
             "role": "user",
-            "content": f"""Translate these English phrases to Odia: {phrases_list}
-            Return a single-line JSON array with no extra whitespace or formatting.
-            Format: [{{"english":"I am going home","odia":"ମୁଁ ଘରକୁ ଯାଉଛି","romanized_odia":"mun gharaku jauchhi"}}]"""
+            "content": content
         }
 
     @staticmethod
-    def get_messages(phrases):
+    def get_messages(phrases=None):
         """Returns a list of messages for translation"""
         messages = [PhraseTranslation.get_system_prompt()]
         messages.append(PhraseTranslation.get_translation_prompt(phrases))
-        return messages 
+        return messages
 
 
 class PhraseGeneration:
@@ -169,24 +209,27 @@ class OdiaPhraseGeneration:
         return {
             "role": "system",
             "content": """You are an Odia language expert who generates common Odia phrases.
-            Return ONLY a JSON array of 10 Odia phrases.
-            Example format: ["ତୁମେ କେମିତି ଅଛ","ମୁଁ ଭଲ ଅଛି","ଆପଣଙ୍କୁ ଦେଖି ଖୁସି ଲାଗିଲା"]
+            You must generate phrases different from any existing ones provided.
+            Return ONLY a JSON array of 5 Odia phrases.
+            Example format: ["ତୁମେ କେମିତି ଅଛ","ମୁଁ ଭଲ ଅଛି","ଆପଣଙ୍କୁ ଦେଖି ଖୁସି ଲାଗିଲା","ଧନ୍ୟବାଦ","ନମସ୍କାର"]
             Rules:
             - Generate natural, everyday phrases
             - Use proper Odia script
             - One line JSON array only
-            - No English or romanized text"""
+            - No English or romanized text
+            - Avoid repeating existing phrases"""
         }
 
     @staticmethod
     def get_generation_prompt(existing_phrases=None):
         if existing_phrases:
-            content = f"""Existing Odia phrases: {', '.join(existing_phrases)}
-            Generate 10 NEW common Odia phrases (different from existing ones).
-            Return as simple JSON array: ["ଓଡ଼ିଆ ବାକ୍ୟ","ଆଉ ଏକ ବାକ୍ୟ"]"""
+            content = f"""User has already learned these Odia phrases: {', '.join(existing_phrases)}
+            Generate 5 NEW common Odia phrases that would be useful to learn next.
+            Make sure not to repeat any existing phrases.
+            Return as simple JSON array: ["ଓଡ଼ିଆ ବାକ୍ୟ","ଆଉ ଏକ ବାକ୍ୟ","ତୃତୀୟ ବାକ୍ୟ","ଚତୁର୍ଥ ବାକ୍ୟ","ପଞ୍ଚମ ବାକ୍ୟ"]"""
         else:
-            content = """Generate 10 common Odia phrases used in daily life.
-            Return as simple JSON array: ["ଓଡ଼ିଆ ବାକ୍ୟ","ଆଉ ଏକ ବାକ୍ୟ"]"""
+            content = """Generate 5 common Odia phrases used in daily life.
+            Return as simple JSON array: ["ଓଡ଼ିଆ ବାକ୍ୟ","ଆଉ ଏକ ବାକ୍ୟ","ତୃତୀୟ ବାକ୍ୟ","ଚତୁର୍ଥ ବାକ୍ୟ","ପଞ୍ଚମ ବାକ୍ୟ"]"""
 
         return {
             "role": "user",
@@ -197,39 +240,6 @@ class OdiaPhraseGeneration:
     def get_messages(existing_phrases=None):
         messages = [OdiaPhraseGeneration.get_system_prompt()]
         messages.append(OdiaPhraseGeneration.get_generation_prompt(existing_phrases))
-        return messages
-
-
-class EnglishTranslation:
-    @staticmethod
-    def get_system_prompt():
-        return {
-            "role": "system",
-            "content": """You are an Odia to English translator.
-            Return a JSON array where each item contains the Odia text and its English translation.
-            Format: [{"odia":"ଓଡ଼ିଆ ବାକ୍ୟ","english":"English sentence"}]
-            IMPORTANT: You must return a valid JSON array.
-            - The response must start with [ and end with ]
-            - Each item must be a complete JSON object
-            - No trailing commas
-            - No line breaks in the output"""
-        }
-
-    @staticmethod
-    def get_translation_prompt(odia_phrases):
-        phrases_list = ", ".join([f'"{phrase}"' for phrase in odia_phrases])
-        return {
-            "role": "user",
-            "content": f"""Translate these Odia phrases to English: {phrases_list}
-            Return as JSON array: [{{"odia":"ତୁମେ କେମିତି ଅଛ","english":"how are you"}}]
-            IMPORTANT: Return ONLY the JSON array, nothing else.
-            Ensure the response is valid JSON that can be parsed."""
-        }
-
-    @staticmethod
-    def get_messages(phrases):
-        messages = [EnglishTranslation.get_system_prompt()]
-        messages.append(EnglishTranslation.get_translation_prompt(phrases))
         return messages
 
 

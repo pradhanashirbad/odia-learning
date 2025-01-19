@@ -1,6 +1,10 @@
 from openai import OpenAI
 import json
 import logging
+from src.prompts.prompts_class import (
+    WordGeneration, OdiaTranslation, EnglishTranslation, 
+    PhraseTranslation  # Changed from OdiaPhraseGeneration
+)
 
 logger = logging.getLogger(__name__)
 
@@ -9,52 +13,45 @@ class OdiaPhraseService:
         self.client = client
         self.config = config
         self.model_configs = model_configs
-        self.model = config["models"]["word_generation"]  # using same model config
+        self.model = config["models"]["word_generation"]
 
     def get_model_config(self):
         return self.model_configs.get(self.model, {})
 
     def validate_odia_text(self, text):
         """Check if text contains Odia characters"""
-        # Odia Unicode range: 0B00-0B7F
         return any('\u0B00' <= char <= '\u0B7F' for char in text)
 
-    def generate_odia_phrases(self, existing_phrases=None):
-        """Generate Odia phrases"""
-        from prompts.prompts_class import OdiaPhraseGeneration
-        
+    def generate_content(self, gen_type='words', existing_words=None):
+        """Generate words or phrases"""
         try:
+            # Use appropriate prompt class based on type
+            if gen_type == 'words':
+                messages = WordGeneration.get_messages(existing_words, gen_type)
+            else:
+                messages = PhraseTranslation.get_messages(existing_words)  # Changed from OdiaPhraseGeneration
+
             completion = self.client.chat.completions.create(
-                messages=OdiaPhraseGeneration.get_messages(existing_phrases),
+                messages=messages,
                 model=self.model,
                 **self.get_model_config()
             )
 
-            odia_phrases = json.loads(completion.choices[0].message.content.strip())
-            if not isinstance(odia_phrases, list):
-                raise ValueError("Expected a JSON array of Odia phrases")
+            content = json.loads(completion.choices[0].message.content.strip())
+            if not isinstance(content, list):
+                raise ValueError(f"Expected a JSON array of {gen_type}")
             
-            valid_phrases = [phrase for phrase in odia_phrases if self.validate_odia_text(phrase)]
-            if not valid_phrases:
-                raise ValueError("No valid Odia phrases generated")
-            
-            return valid_phrases
+            return content  # Return all content, validation happens in process_phrases
 
         except Exception as e:
-            logger.error(f"Error generating Odia phrases: {str(e)}")
+            logger.error(f"Error generating {gen_type}: {str(e)}")
             raise
 
-    def translate_to_english(self, odia_phrases):
-        """Translate Odia phrases to English"""
-        from prompts.prompts_class import EnglishTranslation
-        
-        valid_phrases = [phrase for phrase in odia_phrases if self.validate_odia_text(phrase)]
-        if not valid_phrases:
-            raise ValueError("No valid Odia phrases to translate")
-            
+    def translate_to_odia(self, words):
+        """Translate English words to Odia"""
         try:
             completion = self.client.chat.completions.create(
-                messages=EnglishTranslation.get_messages(valid_phrases),
+                messages=OdiaTranslation.get_messages(words),
                 model=self.model,
                 **self.get_model_config()
             )
@@ -63,82 +60,88 @@ class OdiaPhraseService:
             if not isinstance(translations, list):
                 raise ValueError("Expected a JSON array of translations")
             
+            # Ensure each translation has romanization
+            for t in translations:
+                if 'romanized_odia' not in t:
+                    t['romanized_odia'] = self.get_romanization(t['odia'])
+            
             return translations
+
+        except Exception as e:
+            logger.error(f"Error translating to Odia: {str(e)}")
+            raise
+
+    def get_romanization(self, odia_text):
+        """Get romanization for Odia text"""
+        try:
+            completion = self.client.chat.completions.create(
+                messages=[{
+                    "role": "system",
+                    "content": "You are an Odia romanization expert. Return only the romanized form of the Odia text."
+                }, {
+                    "role": "user",
+                    "content": f"Romanize this Odia text: {odia_text}"
+                }],
+                model=self.model,
+                **self.get_model_config()
+            )
+            return completion.choices[0].message.content.strip()
+        except Exception as e:
+            logger.error(f"Error getting romanization: {str(e)}")
+            return ""
+
+    def translate_to_english(self, odia_phrases):
+        """Translate Odia phrases to English with romanization"""
+        try:
+            completion = self.client.chat.completions.create(
+                messages=EnglishTranslation.get_messages(odia_phrases),
+                model=self.model,
+                **self.get_model_config()
+            )
+
+            translations = json.loads(completion.choices[0].message.content.strip())
+            if not isinstance(translations, list):
+                raise ValueError("Expected a JSON array of translations")
+            
+            # Combine Odia, English and romanized translations
+            combined = []
+            for i, odia_phrase in enumerate(odia_phrases):
+                if i < len(translations):
+                    combined.append({
+                        "english": translations[i].get("english", ""),
+                        "odia": odia_phrase,
+                        "romanized_odia": translations[i].get("romanized_odia", "")
+                    })
+            
+            return combined
 
         except Exception as e:
             logger.error(f"Error translating to English: {str(e)}")
             raise
 
-    def generate_romanized(self, odia_phrases):
-        """Generate romanized versions of Odia phrases"""
-        from prompts.prompts_class import RomanizedGeneration
-        
-        valid_odia = [phrase for phrase in odia_phrases if self.validate_odia_text(phrase)]
-        if not valid_odia:
-            raise ValueError("No valid Odia text found to romanize")
-        
+    def process_phrases(self, gen_type='words', existing_words=None):
+        """Generate and process content"""
         try:
-            completion = self.client.chat.completions.create(
-                messages=RomanizedGeneration.get_messages(valid_odia),
-                model=self.model,
-                **self.get_model_config()
-            )
-
-            romanized = json.loads(completion.choices[0].message.content.strip())
-            if not isinstance(romanized, list):
-                raise ValueError("Expected a JSON array of romanized texts")
-            
-            valid_romanized = [entry for entry in romanized 
-                             if isinstance(entry, dict) and 'odia' in entry and 'romanized' in entry]
-            
-            if not valid_romanized:
-                raise ValueError("No valid romanized entries found in response")
-            
-            return valid_romanized
+            if gen_type == 'words':
+                # Generate English words and translate to Odia with romanization
+                words = self.generate_content('words', existing_words)
+                translations = self.translate_to_odia(words)
+                return translations
+            else:
+                # For phrases, generate directly with PhraseTranslation
+                messages = PhraseTranslation.get_messages()  # No existing phrases needed for first-time users
+                completion = self.client.chat.completions.create(
+                    messages=messages,
+                    model=self.model,
+                    **self.get_model_config()
+                )
+                
+                translations = json.loads(completion.choices[0].message.content.strip())
+                if not isinstance(translations, list):
+                    raise ValueError("Expected a JSON array of translations")
+                
+                return translations
 
         except Exception as e:
-            logger.error(f"Error generating romanized versions: {str(e)}")
-            raise
-
-    def process_phrases(self, existing_phrases=None):
-        """Complete process to generate phrases with translations"""
-        try:
-            # Step 1: Generate Odia phrases
-            odia_phrases = self.generate_odia_phrases(existing_phrases)
-            
-            # Step 2: Get English translations
-            translations = self.translate_to_english(odia_phrases)
-            
-            # Step 3: Get romanized versions
-            romanized = self.generate_romanized(odia_phrases)
-
-            # Step 4: Combine all information
-            combined = []
-            for i, odia_phrase in enumerate(odia_phrases):
-                try:
-                    if (i < len(translations) and i < len(romanized) and
-                        isinstance(translations[i], dict) and isinstance(romanized[i], dict) and
-                        translations[i].get("english") and translations[i].get("odia") and
-                        romanized[i].get("odia") and romanized[i].get("romanized")):
-                        
-                        entry = {
-                            "english": translations[i].get("english", "").strip(),
-                            "odia": odia_phrase.strip(),
-                            "romanized_odia": romanized[i].get("romanized", "").strip()
-                        }
-                        
-                        if all(entry.values()):
-                            combined.append(entry)
-
-                except Exception as e:
-                    continue
-
-            if not combined:
-                raise ValueError("No complete valid entries were generated")
-
-            logger.info(f"Generated {len(combined)} complete phrases")
-            return combined
-
-        except Exception as e:
-            logger.error(f"Error in phrase processing: {str(e)}")
+            logger.error(f"Error in content processing: {str(e)}")
             raise 
