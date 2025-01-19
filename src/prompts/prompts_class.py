@@ -36,10 +36,10 @@ class WordGeneration:
         - Just simple text in a JSON array"""
         
         if existing_words:
-            content = f"""These Odia words/phrases have already been learned: {', '.join(existing_words)}
+            content = f"""User has already learned these items: {', '.join(existing_words)}
             {base_content.format(type=type_desc)}
             Generate 5 NEW items that would be useful to learn next.
-            The translations should be different from the existing Odia items."""
+            Do not repeat any existing items."""
         else:
             content = base_content.format(type=type_desc)
 
@@ -216,9 +216,9 @@ class OdiaPhraseGeneration:
     def get_generation_prompt(existing_phrases=None):
         if existing_phrases:
             content = f"""User has already learned these Odia phrases: {', '.join(existing_phrases)}
-            Generate 5 NEW common Odia phrases (different from existing ones).
-            Return as simple JSON array: ["ଓଡ଼ିଆ ବାକ୍ୟ","ଆଉ ଏକ ବାକ୍ୟ","ତୃତୀୟ ବାକ୍ୟ","ଚତୁର୍ଥ ବାକ୍ୟ","ପଞ୍ଚମ ବାକ୍ୟ"]
-            Do not repeat any existing Odia phrases."""
+            Generate 5 NEW common Odia phrases that would be useful to learn next.
+            Make sure not to repeat any existing phrases.
+            Return as simple JSON array: ["ଓଡ଼ିଆ ବାକ୍ୟ","ଆଉ ଏକ ବାକ୍ୟ","ତୃତୀୟ ବାକ୍ୟ","ଚତୁର୍ଥ ବାକ୍ୟ","ପଞ୍ଚମ ବାକ୍ୟ"]"""
         else:
             content = """Generate 5 common Odia phrases used in daily life.
             Return as simple JSON array: ["ଓଡ଼ିଆ ବାକ୍ୟ","ଆଉ ଏକ ବାକ୍ୟ","ତୃତୀୟ ବାକ୍ୟ","ଚତୁର୍ଥ ବାକ୍ୟ","ପଞ୍ଚମ ବାକ୍ୟ"]"""

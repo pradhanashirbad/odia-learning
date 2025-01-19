@@ -329,13 +329,13 @@ def register_routes(app):
             
             logger.info(f"Starting session for user: {username}")
             
-            # Start fresh session
+            # Initialize session and load existing translations
             translations = data_storage.start_session(username)
-            logger.info(f"Started new session for user: {username}")
+            logger.info(f"Loaded {len(translations)} translations for user: {username}")
             
             return jsonify({
                 'success': True,
-                'translations': translations  # Will be empty array
+                'translations': translations
             })
         except Exception as e:
             logger.error(f"Error starting session: {str(e)}")
@@ -353,9 +353,9 @@ def register_routes(app):
             if not username:
                 raise ValueError("Username is required")
                 
-            # Get total words for prompt context
-            existing_words = data_storage.get_existing_words()
-            logger.info(f"Using {len(existing_words)} total words for context")
+            # Get existing words for prompt context only
+            existing_words = data_storage.get_existing_words(username)
+            logger.info(f"Found {len(existing_words)} existing words for context")
             
             # Generate new content
             new_translations = odia_phrase_service.process_phrases(
@@ -363,12 +363,12 @@ def register_routes(app):
                 existing_words=existing_words
             )
             
-            # Add to session and get all generated translations
-            session_translations = data_storage.add_to_session(new_translations)
+            # Add to current session
+            all_session_translations = data_storage.add_to_session(new_translations)
             
             return jsonify({
                 'success': True,
-                'translations': session_translations  # Return all generated translations
+                'translations': all_session_translations  # Return all session translations
             })
         except Exception as e:
             logger.error(f"Error in generate: {str(e)}")
