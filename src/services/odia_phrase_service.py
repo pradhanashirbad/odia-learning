@@ -128,8 +128,18 @@ class OdiaPhraseService:
                 translations = self.translate_to_odia(words)
                 return translations
             else:
-                # For phrases, we'll let PhraseTranslation handle both generation and translation
-                translations = self.translate_to_odia([])  # Pass empty list to get starter phrases
+                # For phrases, generate directly with PhraseTranslation
+                messages = PhraseTranslation.get_messages()  # No existing phrases needed for first-time users
+                completion = self.client.chat.completions.create(
+                    messages=messages,
+                    model=self.model,
+                    **self.get_model_config()
+                )
+                
+                translations = json.loads(completion.choices[0].message.content.strip())
+                if not isinstance(translations, list):
+                    raise ValueError("Expected a JSON array of translations")
+                
                 return translations
 
         except Exception as e:

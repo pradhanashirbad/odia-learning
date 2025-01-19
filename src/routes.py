@@ -353,9 +353,12 @@ def register_routes(app):
             if not username:
                 raise ValueError("Username is required")
                 
-            # Get existing words for prompt context only
+            # Get existing words for context (will be None for new users)
             existing_words = data_storage.get_existing_words(username)
-            logger.info(f"Found {len(existing_words)} existing words for context")
+            if existing_words is None:
+                logger.info(f"Starting fresh learning session for user: {username}")
+            else:
+                logger.info(f"Found {len(existing_words)} existing words for context")
             
             # Generate new content
             new_translations = odia_phrase_service.process_phrases(
@@ -368,7 +371,7 @@ def register_routes(app):
             
             return jsonify({
                 'success': True,
-                'translations': all_session_translations  # Return all session translations
+                'translations': all_session_translations
             })
         except Exception as e:
             logger.error(f"Error in generate: {str(e)}")

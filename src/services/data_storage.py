@@ -37,27 +37,23 @@ class DataStorageService:
         return os.path.join(user_dir, f"session_{timestamp}.json")
 
     def get_existing_words(self, username=None):
-        """Get existing words from previous sessions for prompt context"""
+        """Get existing words from user's previous sessions"""
         try:
             user_dir = self._get_user_dir(username)
             if not os.path.exists(user_dir):
-                return []
-
-            all_translations = []
-            # Read all JSON files in user's directory
-            for filename in os.listdir(user_dir):
-                if filename.endswith('.json'):
-                    file_path = os.path.join(user_dir, filename)
-                    with open(file_path, 'r', encoding='utf-8') as f:
-                        translations = json.load(f)
-                        if isinstance(translations, list):
-                            all_translations.extend(translations)
-
-            # Extract only English words for prompt context
-            return [item.get('english', '') for item in all_translations if 'english' in item]
+                logger.info(f"New user {username}, creating directory")
+                os.makedirs(user_dir, exist_ok=True)
+                return None  # Return None for new users
+                
+            translations = self.get_all_user_translations(username)
+            if not translations:
+                logger.info(f"No existing translations for user {username}")
+                return None
+                
+            return [item.get('english', '') for item in translations if 'english' in item]
         except Exception as e:
             logger.error(f"Error getting existing words: {e}")
-            return []
+            return None
 
     def add_to_session(self, translations):
         """Add new translations to current session"""
