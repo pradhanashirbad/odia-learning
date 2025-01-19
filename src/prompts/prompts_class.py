@@ -132,27 +132,35 @@ class PhraseTranslation:
             {"english":"I like to play","odia":"ମୁଁ ଖେଳିବାକୁ ଭଲପାଏ","romanized_odia":"mun khelibaku bhalapaae"}
             Example complete response:
             [{"english":"how are you","odia":"ତୁମେ କେମିତି ଅଛ","romanized_odia":"tume kemiti acha"},
-             {"english":"I am fine","odia":"ମୁଁ ଭଲ ଅଛି","romanized_odia":"mun bhala achhi"}]"""
+             {"english":"I am fine","odia":"ମୁଁ ଭଲ ଅଛି","romanized_odia":"mun bhala achhi"}]
+            Generate simple, everyday conversational phrases."""
         }
 
     @staticmethod
-    def get_translation_prompt(phrases):
+    def get_translation_prompt(phrases=None):
         """Create translation prompt for phrases"""
-        phrases_list = ", ".join([f'"{phrase}"' for phrase in phrases])
+        if phrases and len(phrases) > 0:
+            phrases_list = ", ".join([f'"{phrase}"' for phrase in phrases])
+            content = f"""Translate these English phrases to Odia: {phrases_list}
+            Return a single-line JSON array with no extra whitespace or formatting.
+            Format: [{{"english":"I am going home","odia":"ମୁଁ ଘରକୁ ଯାଉଛି","romanized_odia":"mun gharaku jauchhi"}}]"""
+        else:
+            content = """Let's start learning with 5 basic greeting and introduction phrases.
+            Return a single-line JSON array with translations for these common phrases:
+            ["hello", "how are you", "my name is", "nice to meet you", "thank you"]
+            Format: [{{"english":"hello","odia":"ନମସ୍କାର","romanized_odia":"namaskara"}}]"""
         
         return {
             "role": "user",
-            "content": f"""Translate these English phrases to Odia: {phrases_list}
-            Return a single-line JSON array with no extra whitespace or formatting.
-            Format: [{{"english":"I am going home","odia":"ମୁଁ ଘରକୁ ଯାଉଛି","romanized_odia":"mun gharaku jauchhi"}}]"""
+            "content": content
         }
 
     @staticmethod
-    def get_messages(phrases):
+    def get_messages(phrases=None):
         """Returns a list of messages for translation"""
         messages = [PhraseTranslation.get_system_prompt()]
         messages.append(PhraseTranslation.get_translation_prompt(phrases))
-        return messages 
+        return messages
 
 
 class PhraseGeneration:

@@ -128,10 +128,8 @@ class OdiaPhraseService:
                 translations = self.translate_to_odia(words)
                 return translations
             else:
-                # Generate English phrases and translate to Odia
-                english_phrases = self.generate_content('phrases', existing_words)
-                # Translate English phrases to Odia with romanization
-                translations = self.translate_to_odia(english_phrases)
+                # For phrases, we'll let PhraseTranslation handle both generation and translation
+                translations = self.translate_to_odia([])  # Pass empty list to get starter phrases
                 return translations
 
         except Exception as e:
