@@ -75,9 +75,20 @@ class DataStorageService:
 
     def add_to_session(self, new_translations):
         """Add new translations to current session"""
-        # Extend current translations with new ones
-        self.current_translations.extend(new_translations)
-        # print(self.current_translations)
+        # Check for duplicates before adding
+        existing_odia = {t.get('odia', '') for t in self.current_translations}
+        
+        # Only add translations that aren't already in the session
+        unique_translations = [
+            t for t in new_translations 
+            if t.get('odia', '') not in existing_odia
+        ]
+        
+        # Extend current translations with unique ones
+        self.current_translations.extend(unique_translations)
+        
+        logger.info(f"Added {len(unique_translations)} unique translations to session. Total: {len(self.current_translations)}")
+        
         # Return a copy to avoid reference issues
         return list(self.current_translations)
 
